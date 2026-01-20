@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>RSVP Reader — Auto Resume</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    /* Base UI */
+    body {
+      background-color: black;
+      color: white;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      overflow: hidden;
+      touch-action: manipulation;
+    }
+
+    #ui { display: flex; flex-direction: column; align-items: center; transition: opacity 0.5s ease; }
+
+    #reader {
+      font-size: 6em;
+      text-align: center;
+      display: none;
+      max-width: 90%;
+      line-height: 1.2;
+      user-select: none;
+    }
+
+    .highlight { color: red; }
+
+    textarea {
+      width: 80%;
+      height: 120px;
+      margin: 10px;
+      background: #111;
+      color: white;
+      border: 1px solid #444;
+      padding: 10px;
+      font-size: 1.2em;
+    }
+
+    .controls { margin: 10px; color: white; }
+    input[type=range] { width: 200px; }
+
+    button {
+      margin: 5px;
+      padding: 10px 20px;
+      background: #222;
+      color: white;
+      border: 1px solid #444;
+      cursor: pointer;
+      font-size: 1.1em;
+    }
+    button:hover { background: #333; }
+
+    .group-control { margin-top: 5px; font-size: 0.9em; }
+    .group-control select { background: #111; color: white; border: 1px solid #444; padding: 4px 8px; }
+
+    #fileInput { display: none; }
+
+    /* Modal styling */
+    .modal {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center;
+      z-index: 999;
+    }
+    .modal-content {
+      background: #222; padding: 20px; border: 1px solid #444; width: 80%; max-width: 700px;
+      max-height: 80%; overflow-y: auto;
+    }
+    .modal h2 { margin-top: 0; }
+    .library-item { border-bottom: 1px solid #444; padding: 10px 0; }
+    .library-item button { margin-left: 8px; }
+
+    /* Rename modal input */
+    #renameInput { width: 95%; padding: 10px; margin-bottom: 15px; background: #111; color: white; border: 1px solid #444; font-size: 1.1em; }
+
+    /* Rewind/Skip indicator */
+    #actionIndicator {
+      position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.6); color: white; padding: 10px 20px; border-radius: 10px;
+      font-size: 1.4em; opacity: 0; transition: opacity 0.25s ease-in-out; pointer-events: none; z-index: 999999;
+    }
+
+    /* Bottom hidden speed slider */
+    #speedSliderContainer {
+      position: fixed; left: 50%; transform: translateX(-50%) translateY(120%);
+      bottom: 12px; width: 90%; max-width: 900px; background: rgba(20,20,20,0.9);
+      border: 1px solid #444; padding: 8px 12px; border-radius: 12px; display: flex;
+      align-items: center; gap: 12px; transition: transform 0.28s ease, opacity 0.28s ease;
+      opacity: 0; z-index: 999998; pointer-events: none; user-select: none;
+    }
+    #speedSliderContainer.visible { transform: translateX(-50%) translateY(0%); opacity: 1; pointer-events: auto; }
+    #speedSliderLabel { min-width: 110px; text-align: center; font-size: 0.95em; color: #ddd; }
+    #speedSlider { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; background: #333; border-radius: 6px; outline: none; }
+    #speedSlider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 2px solid #666; cursor: pointer; }
+
+    /* Import UI */
+    #importRow { margin-top: 8px; display:flex; gap:8px; align-items:center; width:80%; max-width:900px; }
+    #importUrl { flex:1; padding:8px; background:#111; color:white; border:1px solid #444; font-size:1em; }
+    #importOptions { display:flex; gap:8px; align-items:center; }
+    #importStatus { margin-left:8px; font-size:0.95em; color:#ccc; min-width:160px; text-align:center; }
+
+    /* Auto-resume toggle */
+    #autoResumeRow { margin-top:8px; color:#ccc; font-size:0.95em; }
+
+    /* Small responsive tweaks */
+    @media (max-width: 600px) {
+      #reader { font-size: 4.2em; }
+      textarea { width: 92%; height: 140px; }
+      .modal-content { width: 92%; }
+      #speedSliderLabel { min-width: 80px; font-size: 0.9em; }
+      #importRow { width:92%; flex-direction:column; align-items:stretch; }
+      #importStatus { margin-left:0; margin-top:6px; }
+    }
+  </style>
+
+  <!-- Readability (Mozilla) -->
+  <script src="https://unpkg.com/@mozilla/readability@0.4.4/Readability.js"></script>
+  <!-- PDF.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.9.179/pdf.min.js"></script>
+</head>
+<body>
+
+  <div id="ui">
+    <h1>RSVP Reader</h1>
+
+    <textarea id="inputText" placeholder="Paste text here..."></textarea>
+
+    <div class="controls">
+      <label>Speed (words per minute):
+        <input type="range" id="speedControl" min="100" max="1000" value="300" step="50">
+        <span id="speedValue">300</span>
+      </label>
+
+      <div class="group-control">
+        <label>Words per frame:
+          <select id="groupSizeSelect">
+            <option value="1" selected>1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <div>
+      <button onclick="startReading()">Start</button>
+      <button onclick="pauseReading()">Pause</button>
+      <button onclick="resumeReading()">Resume</button>
+      <button onclick="stopReading()">Stop</button>
+      <button onclick="enterFullscreen()">Full Screen</button>
+      <button id="saveProgressBtn" style="display:none;" onclick="saveProgressToLibrary()">Save Progress</button>
+    </div>
+
+    <div id="importRow">
+      <input id="importUrl" placeholder="Paste webpage or PDF URL here (https://...)" />
+      <div id="importOptions">
+        <label style="display:flex;align-items:center;gap:6px;">
+          <input id="autoStartImport" type="checkbox" /> Auto-start
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;">
+          <input id="saveImportToLibrary" type="checkbox" /> Save to library
+        </label>
+        <button onclick="importFromUrl()">Import</button>
+        <div id="importStatus" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <div id="autoResumeRow">
+      <label style="display:flex;align-items:center;gap:8px;">
+        <input id="autoResumeDraft" type="checkbox" /> Auto-resume last pasted text on load
+      </label>
+    </div>
+
+    <div style="margin-top:8px;">
+      <button onclick="triggerFileLoad()">Load .txt</button>
+      <button onclick="saveTextFile()">Save .txt</button>
+      <button onclick="saveToLibrary()">Save to Library</button>
+      <button onclick="openLibrary()">Library</button>
+      <button onclick="openControls()">Controls</button>
+    </div>
+
+    <input type="file" id="fileInput" accept=".txt">
+  </div>
+
+  <div id="reader" aria-live="polite"></div>
+
+  <!-- Library Modal -->
+  <div id="libraryModal" class="modal" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <h2>Saved Texts</h2>
+      <div id="libraryList"></div>
+      <div style="margin-top:12px;">
+        <button onclick="closeLibrary()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rename Modal -->
+  <div id="renameModal" class="modal" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <h2>Rename Entry</h2>
+      <input id="renameInput" type="text" aria-label="Rename entry">
+      <div style="margin-top:8px;">
+        <button onclick="confirmRename()">Save</button>
+        <button onclick="closeRename()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls Modal -->
+  <div id="controlsModal" class="modal" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <h2>Controls Reference</h2>
+      <p><strong>Tap Controls:</strong></p>
+      <ul>
+        <li>Single tap → Pause / Resume</li>
+        <li>Double‑tap left → Rewind 50 words</li>
+        <li>Double‑tap right → Skip 50 words</li>
+        <li>Swipe up/down from bottom → Adjust speed (mobile)</li>
+      </ul>
+
+      <p><strong>Keyboard Controls:</strong></p>
+      <ul>
+        <li>Space → Pause / Resume</li>
+        <li>Left Arrow → Rewind 50 words</li>
+        <li>Right Arrow → Skip 50 words</li>
+        <li>H → Toggle UI</li>
+        <li>ESC → Exit Fullscreen</li>
+        <li>Scroll (wheel) → Adjust speed (desktop)</li>
+      </ul>
+
+      <button onclick="closeControls()">Close</button>
+    </div>
+  </div>
+
+  <!-- Rewind/Skip indicator -->
+  <div id="actionIndicator" aria-hidden="true"></div>
+
+  <!-- Bottom hidden speed slider -->
+  <div id="speedSliderContainer" aria-hidden="true">
+    <div id="speedSliderLabel">Speed: <strong id="speedLabelValue">300</strong> WPM</div>
+    <input id="speedSlider" type="range" min="100" max="1000" step="50" value="300" />
+  </div>
+
+  <script>
+    /* -------------------------
+       State & Elements
+       ------------------------- */
+    let words = [];
+    let index = 0;
+    let interval = null;
+    let delay = 60000 / 300;
+    let paused = false;
+    let groupSize = 1;
+    const SKIP_AMOUNT = 50;
+    let ignoreNextClick = false;
+    let modalOpen = false;
+    let renameIndex = null;
+    let lastTap = 0;
+
+    // Track which library entry is currently loaded (if any)
+    let currentLibraryIndex = null;
+
+    // Periodic save timer for draft position
+    let draftSaveInterval = null;
+
+    const reader = document.getElementById('reader');
+    const ui = document.getElementById('ui');
+    const speedControl = document.getElementById('speedControl');
+    const speedValue = document.getElementById('speedValue');
+    const groupSizeSelect = document.getElementById('groupSizeSelect');
+    const fileInput = document.getElementById('fileInput');
+    const inputText = document.getElementById('inputText');
+
+    const libraryModal = document.getElementById('libraryModal');
+    const libraryList = document.getElementById('libraryList');
+    const controlsModal = document.getElementById('controlsModal');
+    const renameModal = document.getElementById('renameModal');
+    const renameInput = document.getElementById('renameInput');
+
+    const actionIndicator = document.getElementById('actionIndicator');
+    const saveProgressBtn = document.getElementById('saveProgressBtn');
+
+    const speedSliderContainer = document.getElementById('speedSliderContainer');
+    const speedSlider = document.getElementById('speedSlider');
+    const speedLabelValue = document.getElementById('speedLabelValue');
+
+    const importUrl = document.getElementById('importUrl');
+    const importStatus = document.getElementById('importStatus');
+    const autoStartImport = document.getElementById('autoStartImport');
+    const saveImportToLibrary = document.getElementById('saveImportToLibrary');
+
+    const autoResumeDraft = document.getElementById('autoResumeDraft');
+
+    /* LocalStorage keys for draft auto-resume */
+    const LS_DRAFT_KEY = 'rsvp_lastDraft';
+    const LS_DRAFT_POS_KEY = 'rsvp_lastDraftPosition';
+    const LS_DRAFT_TS_KEY = 'rsvp_lastDraftTimestamp';
+    const LS_AUTO_RESUME_KEY = 'rsvp_autoResumeDraftEnabled';
+
+    /* -------------------------
+       Speed controls helpers
+       ------------------------- */
+    function setSpeedWPM(wpm, {persistControl=true} = {}) {
+      wpm = Math.max(100, Math.min(1000, Math.round(wpm / 50) * 50));
+      speedControl.value = wpm;
+      speedSlider.value = wpm;
+      speedValue.textContent = wpm;
+      speedLabelValue.textContent = wpm;
+      delay = 60000 / wpm;
+      if (interval) {
+        clearInterval(interval);
+        interval = setInterval(showWord, delay);
+      }
+    }
+
+    speedControl.addEventListener('input', () => {
+      setSpeedWPM(parseInt(speedControl.value, 10), {persistControl:false});
+    });
+
+    speedSlider.addEventListener('input', () => {
+      setSpeedWPM(parseInt(speedSlider.value, 10), {persistControl:false});
+      showSpeedSlider();
+    });
+
+    function showSpeedSlider() {
+      clearTimeout(window._sliderHideTimer);
+      speedSliderContainer.classList.add('visible');
+      speedSliderContainer.setAttribute('aria-hidden', 'false');
+      window._sliderHideTimer = setTimeout(hideSpeedSlider, 1800);
+    }
+
+    function hideSpeedSlider() {
+      speedSliderContainer.classList.remove('visible');
+      speedSliderContainer.setAttribute('aria-hidden', 'true');
+    }
+
+    function increaseSpeedStep() { setSpeedWPM(parseInt(speedControl.value,10) + 50); showSpeedSlider(); }
+    function decreaseSpeedStep() { setSpeedWPM(parseInt(speedControl.value,10) - 50); showSpeedSlider(); }
+
+    /* wheel to adjust speed */
+    let lastWheelTime = 0;
+    document.addEventListener('wheel', (e) => {
+      if (modalOpen) return;
+      const now = Date.now();
+      if (now - lastWheelTime < 60) { showSpeedSlider(); lastWheelTime = now; return; }
+      lastWheelTime = now;
+      if (e.deltaY < 0) increaseSpeedStep();
+      else if (e.deltaY > 0) decreaseSpeedStep();
+    }, { passive: true });
+
+    /* touch swipe from bottom to adjust speed */
+    let touchStartY = null, touchStartX = null, touchFromBottom = false;
+    document.addEventListener('touchstart', (e) => {
+      if (modalOpen) return;
+      if (!e.changedTouches || e.changedTouches.length === 0) return;
+      const t = e.changedTouches[0];
+      touchStartY = t.clientY; touchStartX = t.clientX;
+      touchFromBottom = (touchStartY > window.innerHeight * 0.8);
+    }, { passive: true });
+
+    document.addEventListener('touchend', (e) => {
+      if (modalOpen) return;
+      if (!touchFromBottom) { touchStartY = null; touchStartX = null; return; }
+      const t = e.changedTouches[0];
+      const dy = t.clientY - touchStartY;
+      const dx = t.clientX - touchStartX;
+      if (Math.abs(dy) > 30 && Math.abs(dy) > Math.abs(dx)) {
+        if (dy < 0) increaseSpeedStep(); else decreaseSpeedStep();
+      } else {
+        showSpeedSlider();
+      }
+      touchStartY = null; touchStartX = null; touchFromBottom = false;
+    }, { passive: true });
+
+    /* -------------------------
+       File load/save
+       ------------------------- */
+    function triggerFileLoad() { fileInput.click(); }
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      const r = new FileReader();
+      r.onload = (e) => { inputText.value = e.target.result; saveLastDraft(); };
+      r.readAsText(file);
+    });
+
+    function saveTextFile() {
+      const blob = new Blob([inputText.value], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "rsvp_text.txt"; a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    /* -------------------------
+       Library (localStorage)
+       Each entry: { text, timestamp, name, position }
+       position = word index where user left off
+       ------------------------- */
+    function getLibrary() {
+      return JSON.parse(localStorage.getItem("rsvpLibrary") || "[]");
+    }
+
+    function setLibrary(lib) {
+      localStorage.setItem("rsvpLibrary", JSON.stringify(lib));
+    }
+
+    function saveToLibrary() {
+      const text = inputText.value.trim(); if (!text) return;
+      const library = getLibrary();
+      const name = "Entry " + (library.length + 1);
+      library.push({ text, timestamp: Date.now(), name, position: 0 });
+      setLibrary(library);
+      alert("Saved to library");
+    }
+
+    // Save imported text optionally
+    function saveImportedToLibrary(text, name) {
+      const library = getLibrary();
+      library.push({ text, timestamp: Date.now(), name: name || ("Imported " + (library.length + 1)), position: 0 });
+      setLibrary(library);
+    }
+
+    function openLibrary() {
+      modalOpen = true;
+      libraryList.innerHTML = "";
+      const library = getLibrary();
+      if (library.length === 0) {
+        libraryList.innerHTML = "<p>No saved texts yet.</p>";
+      } else {
+        library.forEach((entry, i) => {
+          const div = document.createElement("div"); div.className = "library-item";
+          const preview = entry.text.substring(0, 120).replace(/\n/g, " ");
+          const name = entry.name || ("Entry " + (i + 1));
+          const posWords = entry.position || 0;
+          const posLabel = posWords > 0 ? ` (saved at word ${posWords})` : "";
+          div.innerHTML = `
+            <strong>${escapeHtml(name)}</strong>${posLabel}<br>
+            <em>${escapeHtml(preview)}...</em><br>
+            <button onclick="loadLibraryItemStart(${i})">Start from Beginning</button>
+            <button onclick="loadLibraryItemContinue(${i})">Continue</button>
+            <button onclick="openRename(${i})">Rename</button>
+            <button onclick="deleteLibraryItem(${i})">Delete</button>
+          `;
+          libraryList.appendChild(div);
+        });
+      }
+      libraryModal.style.display = "flex";
+    }
+
+    function closeLibrary() { modalOpen = false; libraryModal.style.display = "none"; }
+
+    // Load and start from beginning (position = 0)
+    function loadLibraryItemStart(i) {
+      const library = getLibrary();
+      if (!library[i]) return;
+      inputText.value = library[i].text;
+      currentLibraryIndex = i;
+      index = 0;
+      startReading();
+      closeLibrary();
+      updateSaveProgressButton();
+      saveLastDraft(); // keep draft in sync
+    }
+
+    // Load and continue from saved position
+    function loadLibraryItemContinue(i) {
+      const library = getLibrary();
+      if (!library[i]) return;
+      inputText.value = library[i].text;
+      currentLibraryIndex = i;
+      index = library[i].position || 0;
+      startReading();
+      closeLibrary();
+      updateSaveProgressButton();
+      saveLastDraft(); // keep draft in sync
+    }
+
+    function deleteLibraryItem(i) {
+      const library = getLibrary();
+      if (!library[i]) return;
+      library.splice(i,1);
+      setLibrary(library);
+      openLibrary();
+    }
+
+    /* Save current reading position into the currently loaded library item */
+    function saveProgressToLibrary() {
+      if (currentLibraryIndex === null) {
+        alert("No library item is currently loaded. Load an item from the Library first.");
+        return;
+      }
+      const library = getLibrary();
+      if (!library[currentLibraryIndex]) {
+        alert("Library item not found.");
+        return;
+      }
+      library[currentLibraryIndex].position = index;
+      setLibrary(library);
+      showIndicator("Progress saved");
+      if (libraryModal.style.display === "flex") openLibrary();
+    }
+
+    /* When reading a library item, show Save Progress button; hide otherwise */
+    function updateSaveProgressButton() {
+      if (currentLibraryIndex !== null) {
+        saveProgressBtn.style.display = "inline-block";
+      } else {
+        saveProgressBtn.style.display = "none";
+      }
+    }
+
+    /* RENAME modal functions */
+    function openRename(i) {
+      const library = getLibrary();
+      if (!library[i]) return;
+      renameIndex = i;
+      renameInput.value = library[i].name || ("Entry " + (i + 1));
+      modalOpen = true;
+      renameModal.style.display = "flex";
+      setTimeout(() => { renameInput.focus(); renameInput.setSelectionRange(renameInput.value.length, renameInput.value.length); }, 50);
+    }
+    function closeRename() { modalOpen = false; renameModal.style.display = "none"; renameIndex = null; }
+    function confirmRename() {
+      const library = getLibrary();
+      if (renameIndex === null || !library[renameIndex]) { closeRename(); return; }
+      library[renameIndex].name = renameInput.value.trim() || library[renameIndex].name;
+      setLibrary(library);
+      closeRename();
+      openLibrary();
+    }
+
+    /* Controls modal */
+    function openControls() { modalOpen = true; controlsModal.style.display = "flex"; }
+    function closeControls() { modalOpen = false; controlsModal.style.display = "none"; }
+
+    /* -------------------------
+       ORP, grouping, reading core
+       ------------------------- */
+    function getORPIndex(word) {
+      const clean = word.replace(/^[^\w]+|[^\w]+$/g, "");
+      const len = clean.length;
+      if (len <= 1) return 0;
+      if (len <= 5) return 1;
+      if (len <= 9) return 2;
+      return 3;
+    }
+
+    function highlightORP(word) {
+      const leading = word.match(/^[^\w]+/)?.[0] || "";
+      const trailing = word.match(/[^\w]+$/)?.[0] || "";
+      const core = word.replace(/^[^\w]+|[^\w]+$/g, "");
+      if (!core) return escapeHtml(word);
+      const pivot = getORPIndex(core);
+      const highlightedCore =
+        escapeHtml(core.substring(0, pivot)) +
+        '<span class="highlight">' + escapeHtml(core.charAt(pivot)) + '</span>' +
+        escapeHtml(core.substring(pivot + 1));
+      return escapeHtml(leading) + highlightedCore + escapeHtml(trailing);
+    }
+
+    function getWordGroup() {
+      const group = words.slice(index, index + groupSize);
+      index += groupSize;
+      return group;
+    }
+
+    function punctuationDelayMultiplier(text) {
+      const trimmed = text.trim();
+      if (/[.!?]$/.test(trimmed)) return 3;
+      if (/[,;:]$/.test(trimmed)) return 2;
+      return 1;
+    }
+
+    function startReading() {
+      const text = inputText.value.trim(); if (!text) return;
+      words = text.split(/\s+/); // split into words
+      if (index >= words.length) index = 0;
+      paused = false;
+      clearInterval(interval);
+      delay = 60000 / parseInt(speedControl.value, 10);
+      ui.style.opacity = "0"; setTimeout(() => ui.style.display = "none", 500);
+      reader.style.display = "block";
+      interval = setInterval(showWord, delay);
+      updateSaveProgressButton();
+      startDraftPositionSaver();
+    }
+
+    function pauseReading() { clearInterval(interval); interval = null; paused = true; stopDraftPositionSaver(); saveLastDraftPosition(); }
+    function resumeReading() { if (!interval && index < words.length) { paused = false; interval = setInterval(showWord, delay); startDraftPositionSaver(); } }
+    function stopReading() {
+      clearInterval(interval); interval = null; index = 0; paused = false;
+      reader.innerHTML = ""; reader.style.display = "none";
+      ui.style.display = "flex"; setTimeout(() => ui.style.opacity = "1", 10);
+      stopDraftPositionSaver();
+      saveLastDraftPosition();
+      // keep currentLibraryIndex as-is so user can save progress if desired
+    }
+
+    function showWord() {
+      if (index >= words.length) { stopReading(); return; }
+      const group = getWordGroup();
+      const highlightedGroup = group.map(w => highlightORP(w)).join(" ");
+      reader.innerHTML = highlightedGroup;
+      const lastWord = group[group.length - 1];
+      const multiplier = punctuationDelayMultiplier(lastWord);
+      clearInterval(interval);
+      interval = setInterval(showWord, delay * multiplier);
+    }
+
+    /* Indicator */
+    function showIndicator(message) {
+      actionIndicator.textContent = message;
+      actionIndicator.style.transition = "none";
+      actionIndicator.style.opacity = "0";
+      void actionIndicator.offsetWidth;
+      actionIndicator.style.transition = "opacity 0.25s ease-in-out";
+      actionIndicator.style.opacity = "1";
+      setTimeout(() => { actionIndicator.style.opacity = "0"; }, 900);
+    }
+
+    /* Skip / Rewind */
+    function rewindWords() { index = Math.max(0, index - SKIP_AMOUNT); showIndicator("⏪ Rewind 50 words"); }
+    function skipWords() { index = Math.min(words.length - 1, index + SKIP_AMOUNT); showIndicator("⏩ Skip 50 words"); }
+
+    /* Double-tap detection */
+    document.body.addEventListener("touchend", (e) => {
+      if (modalOpen) return;
+      const currentTime = new Date().getTime();
+      const tapLength = currentTime - lastTap;
+      if (tapLength < 300 && tapLength > 0) {
+        ignoreNextClick = true;
+        const x = e.changedTouches[0].clientX;
+        const half = window.innerWidth / 2;
+        if (x < half) rewindWords(); else skipWords();
+        return;
+      }
+      lastTap = currentTime;
+    });
+
+    /* Single tap pause */
+    document.body.addEventListener("click", (e) => {
+      if (modalOpen) return;
+      if (ignoreNextClick) { ignoreNextClick = false; return; }
+      if (reader.style.display === "none") return;
+      paused ? resumeReading() : pauseReading();
+    });
+
+    /* Keyboard controls */
+    document.addEventListener("keydown", (e) => {
+      if (modalOpen) return;
+      if (e.code === "Space") { e.preventDefault(); paused ? resumeReading() : pauseReading(); return; }
+      if (e.code === "ArrowLeft") { rewindWords(); return; }
+      if (e.code === "ArrowRight") { skipWords(); return; }
+      if (e.code === "Escape") { if (document.fullscreenElement) document.exitFullscreen(); return; }
+      if (e.key.toLowerCase() === "h") {
+        if (ui.style.display === "none") { ui.style.display = "flex"; setTimeout(() => ui.style.opacity = "1", 10); }
+        else { ui.style.opacity = "0"; setTimeout(() => ui.style.display = "none", 500); }
+      }
+    });
+
+    function enterFullscreen() {
+      const elem = document.documentElement;
+      if (elem.requestFullscreen) elem.requestFullscreen();
+      else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+      else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
+    }
+
+    /* Utility: escape HTML */
+    function escapeHtml(str) {
+      if (!str) return "";
+      return str.replace(/[&<>"']/g, function (m) {
+        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m];
+      });
+    }
+
+    /* Close modals when clicking outside */
+    document.querySelectorAll('.modal').forEach(modal => {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          if (modal === libraryModal) closeLibrary();
+          if (modal === controlsModal) closeControls();
+          if (modal === renameModal) closeRename();
+        }
+      });
+    });
+
+    /* Enter confirms rename */
+    renameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); confirmRename(); }
+    });
+
+    /* Initialize displayed speed values */
+    setSpeedWPM(parseInt(speedControl.value, 10), {persistControl:false});
+
+    /* -------------------------
+       IMPORT FROM URL / PDF
+       - After import, optionally save to library
+       - If saved, library entry gets position:0
+       - If auto-start checked, reading begins
+       ------------------------- */
+
+    function setImportStatus(text, isError=false) {
+      importStatus.textContent = text;
+      importStatus.style.color = isError ? '#ff8080' : '#ccc';
+    }
+
+    async function importFromUrl() {
+      const url = importUrl.value.trim();
+      if (!url) { setImportStatus("Enter a URL"); return; }
+      setImportStatus("Importing...");
+      try {
+        const resp = await fetch(url, { method: 'GET' });
+        const contentType = resp.headers.get('content-type') || '';
+
+        if (contentType.includes('application/pdf') || url.toLowerCase().endsWith('.pdf')) {
+          setImportStatus("PDF detected — extracting text...");
+          const arrayBuffer = await resp.arrayBuffer();
+          const text = await extractTextFromPDFBuffer(arrayBuffer);
+          if (!text.trim()) { setImportStatus("No text found in PDF", true); return; }
+          populateImportedText(text, url);
+          setImportStatus("Imported PDF");
+          if (saveImportToLibrary.checked) saveImportedToLibrary(inputText.value, deriveNameFromUrl(url));
+          saveLastDraft(); // persist draft
+          return;
+        }
+
+        const html = await resp.text();
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        let article = null;
+        if (typeof Readability !== 'undefined') {
+          try { article = new Readability(doc).parse(); } catch (e) { article = null; }
+        }
+        let extracted = '';
+        if (article && article.textContent) {
+          extracted = (article.title ? article.title + "\n\n" : "") + article.textContent;
+        } else {
+          const articleEl = doc.querySelector('article') || doc.querySelector('main') || doc.body;
+          extracted = (doc.title ? doc.title + "\n\n" : "") + (articleEl ? articleEl.innerText : doc.body.innerText);
+        }
+
+        if (!extracted.trim()) {
+          setImportStatus("Could not extract main content. Try a different URL or use a CORS proxy.", true);
+          return;
+        }
+
+        populateImportedText(extracted, url);
+        setImportStatus("Imported article");
+        if (saveImportToLibrary.checked) saveImportedToLibrary(inputText.value, deriveNameFromUrl(url));
+        saveLastDraft(); // persist draft
+        return;
+
+      } catch (err) {
+        console.error(err);
+        setImportStatus("Fetch failed (CORS or network). Try a CORS proxy.", true);
+        console.info("Try a CORS proxy like: https://api.allorigins.win/raw?url=YOUR_URL");
+        return;
+      }
+    }
+
+    function deriveNameFromUrl(url) {
+      try {
+        const u = new URL(url);
+        return u.hostname + (u.pathname ? " " + u.pathname.split('/').filter(Boolean).slice(-1)[0] : "");
+      } catch {
+        return "Imported";
+      }
+    }
+
+    function populateImportedText(text, sourceUrl) {
+      const cleaned = text.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+      inputText.value = cleaned + "\n\n[Source: " + sourceUrl + "]";
+      currentLibraryIndex = null;
+      updateSaveProgressButton();
+      saveLastDraft();
+      if (autoStartImport.checked) {
+        setTimeout(() => startReading(), 200);
+      }
+    }
+
+    async function extractTextFromPDFBuffer(arrayBuffer) {
+      try {
+        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+        const pdf = await loadingTask.promise;
+        let fullText = '';
+        for (let p = 1; p <= pdf.numPages; p++) {
+          const page = await pdf.getPage(p);
+          const content = await page.getTextContent();
+          const pageText = content.items.map(i => i.str).join(' ');
+          fullText += pageText + '\n\n';
+        }
+        return fullText;
+      } catch (err) {
+        console.error('PDF extraction error', err);
+        return '';
+      }
+    }
+
+    /* -------------------------
+       Auto-resume last pasted text (draft)
+       - Save last draft text on input/paste
+       - Save last draft position periodically while reading
+       - On load, if auto-resume enabled and draft exists, restore text and resume reading from saved position
+       ------------------------- */
+
+    // Save the current textarea content as the last draft
+    function saveLastDraft() {
+      try {
+        const text = inputText.value || '';
+        localStorage.setItem(LS_DRAFT_KEY, text);
+        localStorage.setItem(LS_DRAFT_TS_KEY, Date.now().toString());
+      } catch (e) {
+        console.warn('Could not save draft', e);
+      }
+    }
+
+    // Save the current reading index as draft position
+    function saveLastDraftPosition() {
+      try {
+        localStorage.setItem(LS_DRAFT_POS_KEY, String(index || 0));
+      } catch (e) {
+        console.warn('Could not save draft position', e);
+      }
+    }
+
+    // Periodically save draft position while reading
+    function startDraftPositionSaver() {
+      stopDraftPositionSaver();
+      draftSaveInterval = setInterval(() => {
+        saveLastDraft(); // keep text in sync
+        saveLastDraftPosition();
+      }, 2000); // every 2 seconds
+    }
+
+    function stopDraftPositionSaver() {
+      if (draftSaveInterval) {
+        clearInterval(draftSaveInterval);
+        draftSaveInterval = null;
+      }
+    }
+
+    // Load draft from localStorage on startup if present and auto-resume enabled
+    function loadDraftOnStartup() {
+      try {
+        const enabled = localStorage.getItem(LS_AUTO_RESUME_KEY);
+        // If user has a saved preference, use it; otherwise default to true
+        const autoResumeEnabled = (enabled === null) ? true : (enabled === 'true');
+        autoResumeDraft.checked = autoResumeEnabled;
+
+        if (!autoResumeEnabled) return;
+
+        const draft = localStorage.getItem(LS_DRAFT_KEY);
+        if (!draft) return;
+
+        // Populate textarea with draft
+        inputText.value = draft;
+
+        // If there's a saved position, resume reading automatically
+        const pos = parseInt(localStorage.getItem(LS_DRAFT_POS_KEY) || '0', 10);
+        if (!isNaN(pos) && pos > 0) {
+          index = pos;
+          // start reading automatically
+          setTimeout(() => {
+            startReading();
+          }, 200);
+        }
+      } catch (e) {
+        console.warn('Could not load draft', e);
+      }
+    }
+
+    // When user toggles auto-resume checkbox, persist preference
+    autoResumeDraft.addEventListener('change', () => {
+      try {
+        localStorage.setItem(LS_AUTO_RESUME_KEY, autoResumeDraft.checked ? 'true' : 'false');
+      } catch (e) {
+        console.warn('Could not save auto-resume preference', e);
+      }
+    });
+
+    // Save draft on input/paste events
+    inputText.addEventListener('input', () => {
+      saveLastDraft();
+      // If user edits the draft, clear currentLibraryIndex because it's not a library item
+      currentLibraryIndex = null;
+      updateSaveProgressButton();
+    });
+
+    inputText.addEventListener('paste', () => {
+      // small timeout to let paste complete
+      setTimeout(() => saveLastDraft(), 50);
+    });
+
+    /* -------------------------
+       Accessibility & small helpers
+       ------------------------- */
+    function escapeHtml(str) {
+      if (!str) return "";
+      return str.replace(/[&<>"']/g, function (m) {
+        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m];
+      });
+    }
+
+    /* Close modals when clicking outside */
+    document.querySelectorAll('.modal').forEach(modal => {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          if (modal === libraryModal) closeLibrary();
+          if (modal === controlsModal) closeControls();
+          if (modal === renameModal) closeRename();
+        }
+      });
+    });
+
+    /* -------------------------
+       Initialization on load
+       ------------------------- */
+    // Ensure Readability and pdfjsLib are available
+    if (typeof Readability === 'undefined') console.warn('Readability not loaded — HTML extraction may be less accurate.');
+    if (typeof pdfjsLib === 'undefined') console.warn('PDF.js not loaded — PDF import will not work.');
+
+    // Load draft and possibly auto-resume
+    window.addEventListener('load', () => {
+      loadDraftOnStartup();
+      // update save progress button visibility
+      updateSaveProgressButton();
+    });
+
+    // Save draft position when page is unloaded
+    window.addEventListener('beforeunload', () => {
+      saveLastDraft();
+      saveLastDraftPosition();
+    });
+
+  </script>
+</body>
+</html>

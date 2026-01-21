@@ -380,7 +380,7 @@
     }
 
     .orp-word .orp {
-      color: #ef4444; /* red ORP */
+      color: #ef4444;
     }
 
     .reader-sub {
@@ -674,7 +674,7 @@
     let currentLibraryItemId = null;
     let onProgressUpdate = null;
 
-    let cleanMode = true; // fullscreen clean mode state
+    let cleanMode = true;
 
     const orpWord = document.getElementById("orpWord");
     const readerPanel = document.getElementById("readerPanel");
@@ -723,6 +723,7 @@
       const size = +fontControl.value;
       fontValue.textContent = size;
       orpWord.style.fontSize = size + "px";
+      ensureWordFits();
     });
 
     orpOffsetControl.addEventListener("input", () => {
@@ -858,6 +859,20 @@
       return parts.join(" ");
     }
 
+    function ensureWordFits() {
+      const container = readerPanel;
+      const wordEl = orpWord;
+      if (!container || !wordEl) return;
+      const baseSize = +fontControl.value || 64;
+      let size = baseSize;
+      wordEl.style.fontSize = size + "px";
+      if (wordEl.scrollWidth <= container.clientWidth * 0.95) return;
+      while (wordEl.scrollWidth > container.clientWidth * 0.95 && size > 20) {
+        size -= 2;
+        wordEl.style.fontSize = size + "px";
+      }
+    }
+
     function renderToken() {
       if (rsvpMode === "single") {
         orpWord.innerHTML = highlightORP(rsvpWords[rsvpIndex] || "");
@@ -865,9 +880,9 @@
         orpWord.innerHTML = highlightChunk(rsvpChunks[rsvpIndex] || "");
       }
       readerSub.textContent =
-        (rsvpMode === "single" ? rsvpIndex + 1 : rsvpIndex + 1) +
-        " / " +
+        (rsvpIndex + 1) + " / " +
         (rsvpMode === "single" ? rsvpWords.length : rsvpChunks.length);
+      ensureWordFits();
     }
 
     function computeDelay(token) {
@@ -890,13 +905,12 @@
       if (document.documentElement.requestFullscreen) {
         try {
           await document.documentElement.requestFullscreen();
-        } catch {
-          // ignore
-        }
+        } catch {}
       }
       document.body.classList.add("fullscreen-mode");
       cleanMode = true;
       updateControlsVisibility();
+      ensureWordFits();
     }
 
     function exitFullscreen() {
@@ -906,22 +920,21 @@
       document.body.classList.remove("fullscreen-mode");
       cleanMode = true;
       updateControlsVisibility();
+      ensureWordFits();
     }
 
     function updateControlsVisibility() {
       const inFs = document.body.classList.contains("fullscreen-mode");
-
       if (!inFs) {
         fullscreenControls.classList.remove("visible");
         fullscreenSpeed.classList.remove("visible");
         readerSub.style.display = "block";
         return;
       }
-
       if (cleanMode) {
         fullscreenControls.classList.remove("visible");
         fullscreenSpeed.classList.remove("visible");
-        readerSub.style.display = "none"; // pure clean mode
+        readerSub.style.display = "none";
       } else {
         fullscreenControls.classList.add("visible");
         readerSub.style.display = "block";
@@ -936,25 +949,19 @@
     function forceStartReading(startIndex = 0, fullscreen = false) {
       const text = inputText.value.trim();
       if (!text) return;
-
       rsvpWords = tokenize(text);
       rsvpChunks = buildChunks(rsvpWords, rsvpMode);
-
       const maxIndex =
         (rsvpMode === "single" ? rsvpWords.length : rsvpChunks.length) - 1;
       rsvpIndex = Math.max(0, Math.min(startIndex, maxIndex));
-
       rsvpRunning = true;
       rsvpPaused = false;
       rsvpAccum = 0;
       rsvpLastFrame = performance.now();
-
       editorPanel.style.display = "none";
       readerPanel.classList.add("active");
-
       pauseBtn.style.display = "inline-flex";
       resumeBtn.style.display = "none";
-
       if (fullscreen) {
         enterFullscreen();
       } else {
@@ -962,7 +969,6 @@
         cleanMode = false;
         updateControlsVisibility();
       }
-
       renderToken();
       requestAnimationFrame(loop);
     }
@@ -979,35 +985,28 @@
 
     function loop(ts) {
       if (!rsvpRunning || rsvpPaused) return;
-
       const delta = ts - rsvpLastFrame;
       rsvpLastFrame = ts;
       rsvpAccum += delta;
-
       const token =
         rsvpMode === "single" ? rsvpWords[rsvpIndex] : rsvpChunks[rsvpIndex];
       const delay = computeDelay(token || "");
-
       if (rsvpAccum >= delay) {
         rsvpAccum -= delay;
         advance();
       }
-
       if (rsvpRunning) requestAnimationFrame(loop);
     }
 
     function advance() {
       const max =
         rsvpMode === "single" ? rsvpWords.length : rsvpChunks.length;
-
       rsvpIndex++;
       if (rsvpIndex >= max) {
         stopReading();
         return;
       }
-
       renderToken();
-
       if (onProgressUpdate && currentLibraryItemId) {
         onProgressUpdate(currentLibraryItemId, rsvpIndex, rsvpMode, rsvpSpeed);
       }
@@ -1039,12 +1038,10 @@
       rsvpIndex = 0;
       orpWord.innerHTML = "";
       readerSub.textContent = "";
-
       editorPanel.style.display = "flex";
       readerPanel.classList.remove("active");
       pauseBtn.style.display = "inline-flex";
       resumeBtn.style.display = "none";
-
       exitFullscreen();
     }
 
@@ -1073,14 +1070,12 @@
     rewindBtn.addEventListener("click", rewind);
     skipBtn.addEventListener("click", skip);
 
-    // Tap to pause/resume in reader
     readerPanel.addEventListener("click", (e) => {
       if (e.target.closest(".fullscreen-controls") || e.target === exitHotspot) return;
       if (!rsvpRunning) return;
       rsvpPaused ? resumeReading() : pauseReading();
     });
 
-    // Wheel speed control
     readerPanel.addEventListener(
       "wheel",
       (e) => {
@@ -1094,12 +1089,10 @@
       { passive: false }
     );
 
-    // Hidden exit hotspot
     exitHotspot.addEventListener("click", () => {
       stopReading();
     });
 
-    // Swipe gestures for clean mode (fullscreen only)
     let touchStartY = null;
     readerPanel.addEventListener("touchstart", (e) => {
       if (e.touches.length === 1) {
@@ -1112,23 +1105,18 @@
       const endY = e.changedTouches[0].clientY;
       const dy = endY - touchStartY;
       const threshold = 40;
-
       if (Math.abs(dy) > threshold) {
         if (dy > 0) {
-          // swipe down -> show controls
           cleanMode = false;
           updateControlsVisibility();
         } else {
-          // swipe up -> hide controls
           cleanMode = true;
           updateControlsVisibility();
         }
       }
-
       touchStartY = null;
     });
 
-    // Keyboard: H toggles clean mode in fullscreen
     document.addEventListener("keydown", (e) => {
       if (!document.body.classList.contains("fullscreen-mode")) return;
       if (e.key.toLowerCase() === "h") {
@@ -1137,7 +1125,6 @@
       }
     });
 
-    // Sync fullscreen state (desktop)
     document.addEventListener("fullscreenchange", () => {
       const fs = !!document.fullscreenElement;
       if (fs) {
@@ -1148,7 +1135,10 @@
         cleanMode = true;
       }
       updateControlsVisibility();
+      ensureWordFits();
     });
+
+    window.addEventListener("resize", ensureWordFits);
 
     setSpeed(400);
     fontValue.textContent = fontControl.value;
@@ -1194,21 +1184,17 @@
     function saveLibrary() {
       try {
         localStorage.setItem(LIB_KEY, JSON.stringify(library));
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
 
     function autoAddCurrentText() {
       const text = inputText.value.trim();
       if (!text) return null;
-
       for (const id in library.items) {
         if (library.items[id].content === text) {
           return id;
         }
       }
-
       const id = uid();
       library.items[id] = {
         id,
@@ -1231,32 +1217,25 @@
     function renderLibrary() {
       const query = librarySearch.value.toLowerCase();
       libraryList.innerHTML = "";
-
       const items = Object.values(library.items).sort(
         (a, b) => b.updated - a.updated
       );
-
       let count = 0;
-
       for (const item of items) {
         const haystack =
           (item.title || "").toLowerCase() +
           " " +
           (item.content || "").toLowerCase();
         if (query && !haystack.includes(query)) continue;
-
         count++;
-
         const totalWords = (item.content || "").split(/\s+/).filter(Boolean)
           .length;
         const idx = item.progress?.index || 0;
         const pct =
           totalWords > 0 ? Math.min(100, Math.floor((idx / totalWords) * 100)) : 0;
-
         const card = document.createElement("div");
         card.className = "item-card";
         card.dataset.id = item.id;
-
         card.innerHTML = `
           <div class="item-title-row">
             <div class="item-title" title="${item.title}">${item.title}</div>
@@ -1272,12 +1251,9 @@
             <button class="btn btn-danger btn-delete">Delete</button>
           </div>
         `;
-
         libraryList.appendChild(card);
       }
-
       librarySummary.textContent = count + " item" + (count === 1 ? "" : "s");
-
       attachItemEvents();
     }
 
@@ -1286,7 +1262,6 @@
         const id = card.dataset.id;
         const item = library.items[id];
         if (!item) return;
-
         card.querySelector(".btn-continue").onclick = () => {
           openItem(id, true);
         };
@@ -1313,12 +1288,9 @@
     function openItem(id, resume) {
       const item = library.items[id];
       if (!item) return;
-
       inputText.value = item.content || "";
       charCount.textContent = inputText.value.length + " characters";
-
       currentLibraryItemId = id;
-
       const startIndex = resume ? item.progress?.index || 0 : 0;
       forceStartReading(startIndex, true);
     }
@@ -1373,7 +1345,6 @@
       }
     });
 
-    // Progress callback from RSVP
     onProgressUpdate = (id, index, mode, speed) => {
       const item = library.items[id];
       if (!item) return;

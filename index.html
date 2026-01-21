@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>RSVP Reader — Auto Resume</title>
+  <title>RSVP Reader — Fixed ORP + Phrase Chunking</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
 
   <style>
@@ -20,25 +20,13 @@
       touch-action: manipulation;
     }
 
+    /* UI container */
     #ui {
       display: flex;
       flex-direction: column;
       align-items: center;
       transition: opacity 0.5s ease;
     }
-
-    #reader {
-      font-size: 10vw;          /* responsive base size */
-      text-align: center;
-      display: none;
-      max-width: 90%;
-      line-height: 1.2;
-      user-select: none;
-      white-space: nowrap;
-      word-wrap: break-word;
-    }
-
-    .highlight { color: red; }
 
     textarea {
       width: 80%;
@@ -62,7 +50,35 @@
     }
     button:hover { background: #333; }
 
-    /* Hidden fullscreen exit hotspot */
+    /* -------------------------
+       FIXED ORP READING COLUMN
+       ------------------------- */
+
+    #orpContainer {
+      width: 60vw;
+      max-width: 60vw;
+      text-align: left;
+      position: relative;
+      margin: 0 auto;
+      display: none;
+      white-space: nowrap;
+      overflow: visible;
+      user-select: none;
+    }
+
+    #orpWord {
+      font-size: 10vw;
+      line-height: 1.2;
+      display: inline-block;
+      white-space: nowrap;
+      position: relative;
+    }
+
+    .highlight {
+      color: red;
+    }
+
+    /* Fullscreen exit hotspot */
     #exitFullscreenHotspot {
       position: fixed;
       top: 0;
@@ -74,7 +90,7 @@
       z-index: 9999999;
     }
 
-    /* Speed slider overlay (visible only during reading) */
+    /* Speed overlay */
     #speedOverlay {
       position: fixed;
       bottom: 20px;
@@ -84,6 +100,26 @@
       padding: 10px 20px;
       border-radius: 10px;
       z-index: 999999;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    #speedOverlay.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    #exitMenuBtn {
+      padding: 6px 12px;
+      font-size: 0.9em;
+      background:#333;
+      border:1px solid #666;
+      color:white;
+      border-radius:6px;
+      display:none;
     }
 
     /* Modals */
@@ -125,38 +161,53 @@
     }
 
     /* Hide reading-only controls unless reading */
-    body:not(.reading) #reader,
+    body:not(.reading) #orpContainer,
     body:not(.reading) .reading-control {
       display: none !important;
     }
+
+    /* Reading Mode Selector */
+    .modeSelector {
+      margin-top: 10px;
+      padding: 10px;
+      background: #111;
+      border: 1px solid #444;
+      width: 80%;
+      max-width: 500px;
+      border-radius: 6px;
+    }
+    .modeSelector label {
+      display: block;
+      margin: 4px 0;
+      cursor: pointer;
+    }
   </style>
 
+  <!-- Readability + PDF.js -->
   <script src="https://unpkg.com/@mozilla/readability@0.4.4/Readability.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.9.179/pdf.min.js"></script>
 </head>
 
 <body>
 
-  <!-- Hidden fullscreen exit hotspot -->
-  <div id="exitFullscreenHotspot"></div>
-
+  <!-- UI -->
   <div id="ui">
     <h1>RSVP Reader</h1>
 
     <textarea id="inputText" placeholder="Paste text here..."></textarea>
 
+    <!-- Reading Mode Selector -->
+    <div class="modeSelector">
+      <strong>Reading Mode:</strong><br>
+      <label><input type="radio" name="mode" value="single" checked> Single Word</label>
+      <label><input type="radio" name="mode" value="conservative"> Phrase Chunking — Conservative</label>
+      <label><input type="radio" name="mode" value="balanced"> Phrase Chunking — Balanced</label>
+    </div>
+
     <div class="controls">
       <label>Speed (WPM):
         <input type="range" id="speedControl" min="100" max="1000" value="300" step="50">
         <span id="speedValue">300</span>
-      </label>
-
-      <label>Words per frame:
-        <select id="groupSizeSelect">
-          <option value="1" selected>1</option>
-          <option value="2">2</option>
-          <option value="3">3</option>
-        </select>
       </label>
     </div>
 
@@ -180,14 +231,20 @@
     <input type="file" id="fileInput" accept=".txt">
   </div>
 
-  <!-- Reader text -->
-  <div id="reader" class="reading-control" aria-live="polite"></div>
+  <!-- FIXED-ORP READING COLUMN -->
+  <div id="orpContainer" class="reading-control">
+    <span id="orpWord"></span>
+  </div>
 
-  <!-- Speed slider overlay (reading only) -->
+  <!-- Speed slider overlay -->
   <div id="speedOverlay" class="reading-control">
     <input type="range" id="speedControl2" min="100" max="1000" value="300" step="50">
     <span id="speedValue2">300</span>
+    <button id="exitMenuBtn">Exit Menu</button>
   </div>
+
+  <!-- Hidden fullscreen exit hotspot -->
+  <div id="exitFullscreenHotspot"></div>
 
   <!-- Library Modal -->
   <div id="libraryModal" class="modal">
@@ -205,7 +262,7 @@
 
       <p><strong>Touch Controls:</strong></p>
       <ul>
-        <li>Single tap → Pause / Resume</li>
+        <li>Single tap → Pause / Resume + show speed dial</li>
         <li>Double‑tap left → Rewind 50 words</li>
         <li>Double‑tap right → Skip 50 words</li>
         <li>Swipe up/down from bottom → Adjust speed</li>
@@ -226,9 +283,10 @@
     </div>
   </div>
 
+  <!-- Action indicator -->
   <div id="actionIndicator"></div>
 
-  <!-- Hidden controls for importer / auto-resume -->
+  <!-- Hidden importer + auto-resume controls -->
   <div style="display:none;">
     <input id="importUrl" />
     <span id="importStatus"></span>
@@ -236,33 +294,45 @@
     <input type="checkbox" id="autoResumeDraft" />
   </div>
 
+  <!-- SCRIPT START -->
   <script>
     /* -------------------------
-       State
+       Core State
        ------------------------- */
-    let words = [];
-    let index = 0;
+
+    let words = [];          // raw words (single-word mode)
+    let chunks = [];         // phrase chunks (phrase modes)
+    let index = 0;           // current position (word or chunk index)
     let interval = null;
-    let delay = 60000 / 300;
+    let delay = 60000 / 300; // default 300 WPM
     let paused = false;
-    let groupSize = 1;
-    const SKIP_AMOUNT = 50;
+    const SKIP_AMOUNT = 50;  // skip/rewind amount (words or chunks)
     let modalOpen = false;
     let currentLibraryIndex = null;
+    let speedOverlayTimeout = null;
+
+    // Reading mode: "single", "conservative", "balanced"
+    let phraseMode = "single";
+
+    /* -------------------------
+       DOM References
+       ------------------------- */
 
     const speedControl = document.getElementById('speedControl');
     const speedValue = document.getElementById('speedValue');
     const speedControl2 = document.getElementById('speedControl2');
     const speedValue2 = document.getElementById('speedValue2');
 
-    const groupSizeSelect = document.getElementById('groupSizeSelect');
-    const reader = document.getElementById('reader');
+    const orpContainer = document.getElementById('orpContainer');
+    const orpWord = document.getElementById('orpWord');
+
     const ui = document.getElementById('ui');
     const fileInput = document.getElementById('fileInput');
     const inputText = document.getElementById('inputText');
     const actionIndicator = document.getElementById('actionIndicator');
     const saveProgressBtn = document.getElementById('saveProgressBtn');
     const exitHotspot = document.getElementById('exitFullscreenHotspot');
+    const exitMenuBtn = document.getElementById('exitMenuBtn');
 
     const importUrl = document.getElementById('importUrl');
     const importStatus = document.getElementById('importStatus');
@@ -270,8 +340,22 @@
     const autoResumeDraft = document.getElementById('autoResumeDraft');
 
     /* -------------------------
-       Speed Controls (Main + Overlay)
+       Reading Mode Selector
        ------------------------- */
+
+    const modeRadios = document.querySelectorAll('input[name="mode"]');
+
+    modeRadios.forEach(radio => {
+      radio.addEventListener('change', () => {
+        phraseMode = radio.value; 
+        // "single", "conservative", or "balanced"
+      });
+    });
+
+    /* -------------------------
+       Speed Controls (UI Sync)
+       ------------------------- */
+
     function syncSpeedControls(wpm) {
       speedControl.value = wpm;
       speedValue.textContent = wpm;
@@ -283,7 +367,10 @@
 
       if (interval) {
         clearInterval(interval);
-        interval = setInterval(showWord, delay);
+        interval = setInterval(() => {
+          if (phraseMode === "single") showWord();
+          else showChunk();
+        }, delay);
       }
     }
 
@@ -292,21 +379,604 @@
       syncSpeedControls(wpm);
     }
 
-    speedControl.addEventListener('input', () => {
+    speedControl.addEventListener("input", () => {
       setSpeedWPM(parseInt(speedControl.value, 10));
     });
 
-    speedControl2.addEventListener('input', () => {
+    speedControl2.addEventListener("input", () => {
       setSpeedWPM(parseInt(speedControl2.value, 10));
     });
+    /* ----------------------------------------------------
+       PART 3 — PHRASE CHUNKING ENGINE
+       ---------------------------------------------------- */
 
-    groupSizeSelect.addEventListener("change", () => {
-      groupSize = parseInt(groupSizeSelect.value, 10);
+    /*  
+      OVERVIEW:
+      - tokenizeText(text) → array of words
+      - buildChunks(words, mode) → array of phrase chunks
+      - conservativeChunk(words) → short, safe chunks
+      - balancedChunk(words) → longer, semantic chunks
+      - getCentralWord(chunk) → returns the central word for ORP
+    */
+
+    /* -------------------------
+       Tokenizer
+       ------------------------- */
+
+    function tokenizeText(text) {
+      return text
+        .replace(/\s+/g, " ")
+        .trim()
+        .split(" ");
+    }
+
+    /* -------------------------
+       Utility: Is boundary punctuation?
+       ------------------------- */
+
+    function isBoundary(word) {
+      return /[.!?;:—–-]$/.test(word);
+    }
+
+    /* -------------------------
+       Utility: Is preposition?
+       ------------------------- */
+
+    const PREP = new Set([
+      "in","on","at","to","for","from","with","about","against","between",
+      "into","through","during","before","after","above","below","under",
+      "over","within","without","across","behind","beyond","around","near",
+      "of","off","up","down","by"
+    ]);
+
+    /* -------------------------
+       Utility: Is conjunction?
+       ------------------------- */
+
+    const CONJ = new Set([
+      "and","but","or","so","yet","nor","for","although","though","because",
+      "while","whereas","unless","until","since","once"
+    ]);
+
+    /* -------------------------
+       Conservative Chunking
+       Short, safe 2–4 word chunks
+       ------------------------- */
+
+    function conservativeChunk(words) {
+      const chunks = [];
+      let current = [];
+
+      for (let i = 0; i < words.length; i++) {
+        const w = words[i];
+        current.push(w);
+
+        // Stop if punctuation ends the phrase
+        if (isBoundary(w)) {
+          chunks.push(current.join(" "));
+          current = [];
+          continue;
+        }
+
+        // Conservative: stop at 2–4 words
+        if (current.length >= 3) {
+          chunks.push(current.join(" "));
+          current = [];
+        }
+      }
+
+      if (current.length > 0) chunks.push(current.join(" "));
+      return chunks;
+    }
+
+    /* -------------------------
+       Balanced Chunking
+       Longer, semantic 4–7 word chunks
+       ------------------------- */
+
+    function balancedChunk(words) {
+      const chunks = [];
+      let current = [];
+
+      for (let i = 0; i < words.length; i++) {
+        const w = words[i];
+        const lw = w.toLowerCase();
+
+        current.push(w);
+
+        // Hard boundary: punctuation
+        if (isBoundary(w)) {
+          chunks.push(current.join(" "));
+          current = [];
+          continue;
+        }
+
+        // If phrase starts with a preposition, allow it to grow
+        if (current.length <= 6) {
+          if (PREP.has(lw) || CONJ.has(lw)) {
+            continue;
+          }
+        }
+
+        // Balanced: stop at 4–7 words
+        if (current.length >= 5) {
+          chunks.push(current.join(" "));
+          current = [];
+        }
+      }
+
+      if (current.length > 0) chunks.push(current.join(" "));
+      return chunks;
+    }
+
+    /* -------------------------
+       Build Chunks Based on Mode
+       ------------------------- */
+
+    function buildChunks(words, mode) {
+      if (mode === "conservative") return conservativeChunk(words);
+      if (mode === "balanced") return balancedChunk(words);
+      return words; // fallback
+    }
+
+    /* -------------------------
+       Central Word for ORP
+       ------------------------- */
+
+    function getCentralWord(chunk) {
+      const parts = chunk.split(" ");
+      const mid = Math.floor(parts.length / 2);
+      return parts[mid];
+    }
+    /* ----------------------------------------------------
+       PART 4 — ORP ENGINE + FIXED-COLUMN ALIGNMENT
+       ---------------------------------------------------- */
+
+    /* -------------------------
+       ORP Index for a Word
+       ------------------------- */
+
+    function getORPIndex(word) {
+      const clean = word.replace(/^[^\w]+|[^\w]+$/g, "");
+      const len = clean.length;
+
+      if (len <= 2) return 0;
+      if (len <= 5) return 1;
+      if (len <= 9) return 2;
+      return 3;
+    }
+
+    /* -------------------------
+       Highlight ORP in a Word
+       ------------------------- */
+
+    function highlightORP(word) {
+      const leading = word.match(/^[^\w]+/)?.[0] || "";
+      const trailing = word.match(/[^\w]+$/)?.[0] || "";
+      const core = word.replace(/^[^\w]+|[^\w]+$/g, "");
+
+      if (!core) return word;
+
+      const pivot = getORPIndex(core);
+
+      return (
+        leading +
+        core.slice(0, pivot) +
+        '<span class="highlight">' +
+        core[pivot] +
+        "</span>" +
+        core.slice(pivot + 1) +
+        trailing
+      );
+    }
+
+    /* -------------------------
+       Highlight ORP in a Chunk
+       (uses central word)
+       ------------------------- */
+
+    function highlightChunkORP(chunk) {
+      const parts = chunk.split(" ");
+      const mid = Math.floor(parts.length / 2);
+      const central = parts[mid];
+
+      const highlighted = highlightORP(central);
+
+      // Replace only the central word
+      parts[mid] = highlighted;
+
+      return parts.join(" ");
+    }
+
+    /* -------------------------
+       FIXED-COLUMN ORP ALIGNMENT
+       Works for both words and chunks
+       ------------------------- */
+
+    function alignToORP(htmlContent) {
+      orpWord.innerHTML = htmlContent;
+
+      // Reset padding before measuring
+      orpWord.style.paddingLeft = "0px";
+
+      // Force layout update
+      void orpWord.offsetWidth;
+
+      const containerWidth = orpContainer.clientWidth;
+      const containerCenter = containerWidth / 2;
+
+      // Find pivot letter position
+      const pivotEl = orpWord.querySelector(".highlight");
+      if (!pivotEl) return;
+
+      const pivotRect = pivotEl.getBoundingClientRect();
+      const wordRect = orpWord.getBoundingClientRect();
+
+      const pivotX = pivotRect.left - wordRect.left;
+      const pivotCenter = pivotX + pivotRect.width / 2;
+
+      const neededPadding = containerCenter - pivotCenter;
+
+      orpWord.style.paddingLeft = neededPadding + "px";
+    }
+
+    /* -------------------------
+       Auto-resize for ORP container
+       (handles long chunks)
+       ------------------------- */
+
+    function adjustFontSize() {
+      let size = parseFloat(window.getComputedStyle(orpWord).fontSize);
+
+      // Shrink until it fits inside the 60% column
+      while (orpWord.scrollWidth > orpContainer.clientWidth && size > 10) {
+        size -= 2;
+        orpWord.style.fontSize = size + "px";
+      }
+    }
+
+    /* -------------------------
+       Render a Single Word
+       ------------------------- */
+
+    function renderWord(word) {
+      const html = highlightORP(word);
+      alignToORP(html);
+      adjustFontSize();
+    }
+
+    /* -------------------------
+       Render a Phrase Chunk
+       ------------------------- */
+
+    function renderChunk(chunk) {
+      const html = highlightChunkORP(chunk);
+      alignToORP(html);
+      adjustFontSize();
+    }
+    /* ----------------------------------------------------
+       PART 5 — READING ENGINE (WORD + CHUNK MODES)
+       ---------------------------------------------------- */
+
+    /* -------------------------
+       Start Reading
+       ------------------------- */
+
+    function startReading() {
+      const text = inputText.value.trim();
+      if (!text) return;
+
+      // Tokenize raw words
+      words = tokenizeText(text);
+
+      // Build chunks if needed
+      if (phraseMode === "single") {
+        chunks = words; // not used, but keeps structure consistent
+      } else {
+        chunks = buildChunks(words, phraseMode);
+      }
+
+      // Reset index if needed
+      if (index >= (phraseMode === "single" ? words.length : chunks.length)) {
+        index = 0;
+      }
+
+      paused = false;
+      clearInterval(interval);
+      delay = 60000 / parseInt(speedControl.value, 10);
+
+      document.body.classList.add("reading");
+
+      ui.style.opacity = "0";
+      setTimeout(() => (ui.style.display = "none"), 500);
+
+      orpContainer.style.display = "block";
+
+      // Start appropriate loop
+      interval = setInterval(() => {
+        if (phraseMode === "single") showWord();
+        else showChunk();
+      }, delay);
+
+      updateSaveProgressButton();
+    }
+
+    /* -------------------------
+       Pause / Resume / Stop
+       ------------------------- */
+
+    function pauseReading() {
+      clearInterval(interval);
+      interval = null;
+      paused = true;
+    }
+
+    function resumeReading() {
+      if (!interval) {
+        paused = false;
+        interval = setInterval(() => {
+          if (phraseMode === "single") showWord();
+          else showChunk();
+        }, delay);
+      }
+    }
+
+    function stopReading() {
+      clearInterval(interval);
+      interval = null;
+      index = 0;
+      paused = false;
+
+      orpWord.innerHTML = "";
+      orpContainer.style.display = "none";
+
+      document.body.classList.remove("reading");
+
+      ui.style.display = "flex";
+      setTimeout(() => (ui.style.opacity = "1"), 10);
+    }
+
+    /* -------------------------
+       Show Word (Single Mode)
+       ------------------------- */
+
+    function showWord() {
+      if (index >= words.length) {
+        stopReading();
+        return;
+      }
+
+      const word = words[index++];
+      renderWord(word);
+
+      // Punctuation delay
+      const trimmed = word.trim();
+      let mult = 1;
+      if (/[.!?]$/.test(trimmed)) mult = 3;
+      else if (/[,;:]$/.test(trimmed)) mult = 2;
+
+      clearInterval(interval);
+      interval = setInterval(showWord, delay * mult);
+    }
+
+    /* -------------------------
+       Show Chunk (Phrase Modes)
+       ------------------------- */
+
+    function showChunk() {
+      if (index >= chunks.length) {
+        stopReading();
+        return;
+      }
+
+      const chunk = chunks[index++];
+      renderChunk(chunk);
+
+      // Punctuation delay based on last word in chunk
+      const lastWord = chunk.split(" ").slice(-1)[0];
+      let mult = 1;
+      if (/[.!?]$/.test(lastWord)) mult = 3;
+      else if (/[,;:]$/.test(lastWord)) mult = 2;
+
+      clearInterval(interval);
+      interval = setInterval(showChunk, delay * mult);
+    }
+
+    /* -------------------------
+       Skip / Rewind
+       (Words in single mode, chunks in phrase mode)
+       ------------------------- */
+
+    function rewindWords() {
+      if (phraseMode === "single") {
+        index = Math.max(0, index - SKIP_AMOUNT);
+        showIndicator("⏪ Rewind 50 words");
+      } else {
+        index = Math.max(0, index - SKIP_AMOUNT);
+        showIndicator("⏪ Rewind 50 chunks");
+      }
+    }
+
+    function skipWords() {
+      if (phraseMode === "single") {
+        index = Math.min(words.length - 1, index + SKIP_AMOUNT);
+        showIndicator("⏩ Skip 50 words");
+      } else {
+        index = Math.min(chunks.length - 1, index + SKIP_AMOUNT);
+        showIndicator("⏩ Skip 50 chunks");
+      }
+    }
+    /* ----------------------------------------------------
+       PART 6 — GESTURES • FULLSCREEN • LIBRARY • IMPORTER
+       ---------------------------------------------------- */
+
+    /* -------------------------
+       Speed Overlay
+       ------------------------- */
+
+    function showSpeedOverlay() {
+      const overlay = document.getElementById("speedOverlay");
+      overlay.classList.add("visible");
+
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        exitMenuBtn.style.display = "inline-block";
+      } else {
+        exitMenuBtn.style.display = "none";
+      }
+
+      clearTimeout(speedOverlayTimeout);
+      speedOverlayTimeout = setTimeout(() => {
+        overlay.classList.remove("visible");
+      }, 2500);
+    }
+
+    exitMenuBtn.addEventListener("click", () => {
+      stopReading();
+
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        if (document.exitFullscreen) document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+      }
+
+      document.getElementById("speedOverlay").classList.remove("visible");
+    });
+
+    /* -------------------------
+       Gesture Controls
+       ------------------------- */
+
+    document.body.addEventListener("click", () => {
+      if (modalOpen) return;
+      if (!document.body.classList.contains("reading")) return;
+
+      showSpeedOverlay();
+      paused ? resumeReading() : pauseReading();
+    });
+
+    let lastTap = 0;
+    document.body.addEventListener("touchend", (e) => {
+      if (modalOpen) return;
+
+      const now = Date.now();
+      const gap = now - lastTap;
+
+      if (gap < 300) {
+        const x = e.changedTouches[0].clientX;
+        if (x < window.innerWidth * 0.5) rewindWords();
+        else skipWords();
+      }
+
+      lastTap = now;
+    });
+
+    let touchStartY = null;
+    let touchStartX = null;
+    let touchFromBottom = false;
+
+    document.addEventListener("touchstart", (e) => {
+      if (modalOpen) return;
+      const t = e.changedTouches[0];
+      touchStartY = t.clientY;
+      touchStartX = t.clientX;
+      touchFromBottom = (touchStartY > window.innerHeight * 0.8);
+    });
+
+    document.addEventListener("touchend", (e) => {
+      if (modalOpen) return;
+      if (!touchFromBottom) return;
+
+      const t = e.changedTouches[0];
+      const dy = t.clientY - touchStartY;
+      const dx = t.clientX - touchStartX;
+
+      if (Math.abs(dy) > 30 && Math.abs(dy) > Math.abs(dx)) {
+        if (dy < 0) setSpeedWPM(parseInt(speedControl.value, 10) + 50);
+        else setSpeedWPM(parseInt(speedControl.value, 10) - 50);
+      }
+
+      touchStartY = null;
+      touchStartX = null;
+      touchFromBottom = false;
+    });
+
+    /* -------------------------
+       Action Indicator
+       ------------------------- */
+
+    function showIndicator(message) {
+      actionIndicator.textContent = message;
+      actionIndicator.style.transition = "none";
+      actionIndicator.style.opacity = "0";
+      void actionIndicator.offsetWidth;
+      actionIndicator.style.transition = "opacity 0.25s ease-in-out";
+      actionIndicator.style.opacity = "1";
+      setTimeout(() => { actionIndicator.style.opacity = "0"; }, 900);
+    }
+
+    /* -------------------------
+       Fullscreen
+       ------------------------- */
+
+    function enterFullscreen() {
+      const elem = document.documentElement;
+      if (elem.requestFullscreen) elem.requestFullscreen();
+      else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+      else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
+    }
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+
+    function handleFullscreenChange() {
+      const fs =
+        document.fullscreenElement || document.webkitFullscreenElement;
+
+      if (!fs) {
+        pauseReading();
+
+        orpContainer.style.display = "none";
+        document.body.classList.remove("reading");
+
+        ui.style.display = "flex";
+        setTimeout(() => (ui.style.opacity = "1"), 10);
+
+        exitHotspot.style.pointerEvents = "none";
+
+        showIndicator("⤓ Exit Fullscreen");
+      } else {
+        exitHotspot.style.pointerEvents = "auto";
+      }
+    }
+
+    window.addEventListener("resize", () => {
+      const fs =
+        document.fullscreenElement || document.webkitFullscreenElement;
+      if (!fs) {
+        pauseReading();
+
+        orpContainer.style.display = "none";
+        document.body.classList.remove("reading");
+
+        ui.style.display = "flex";
+        setTimeout(() => (ui.style.opacity = "1"), 10);
+
+        exitHotspot.style.pointerEvents = "none";
+
+        showIndicator("⤓ Exit Fullscreen");
+      }
+    });
+
+    exitHotspot.addEventListener("click", () => {
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        if (document.exitFullscreen) document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+      }
     });
 
     /* -------------------------
        File Load / Save
        ------------------------- */
+
     function triggerFileLoad() { fileInput.click(); }
 
     fileInput.addEventListener("change", () => {
@@ -330,6 +1000,7 @@
     /* -------------------------
        Library System
        ------------------------- */
+
     function getLibrary() {
       return JSON.parse(localStorage.getItem("rsvpLibrary") || "[]");
     }
@@ -431,343 +1102,11 @@
       saveProgressBtn.style.display =
         currentLibraryIndex !== null ? "inline-block" : "none";
     }
-    /* -------------------------
-       ORP + Reading Engine
-       ------------------------- */
-    function getORPIndex(word) {
-      const clean = word.replace(/^[^\w]+|[^\w]+$/g, "");
-      const len = clean.length;
-      if (len <= 1) return 0;
-      if (len <= 5) return 1;
-      if (len <= 9) return 2;
-      return 3;
-    }
-
-    function highlightORP(word) {
-      const leading = word.match(/^[^\w]+/)?.[0] || "";
-      const trailing = word.match(/[^\w]+$/)?.[0] || "";
-      const core = word.replace(/^[^\w]+|[^\w]+$/g, "");
-      if (!core) return word;
-
-      const pivot = getORPIndex(core);
-      return (
-        leading +
-        core.substring(0, pivot) +
-        '<span class="highlight">' +
-        core.charAt(pivot) +
-        "</span>" +
-        core.substring(pivot + 1) +
-        trailing
-      );
-    }
-
-    function getWordGroup() {
-      const group = words.slice(index, index + groupSize);
-      index += groupSize;
-      return group;
-    }
-
-    function punctuationDelayMultiplier(text) {
-      const trimmed = text.trim();
-      if (/[.!?]$/.test(trimmed)) return 3;
-      if (/[,;:]$/.test(trimmed)) return 2;
-      return 1;
-    }
 
     /* -------------------------
-       Smart Auto‑Resize
-       ------------------------- */
-    function adjustReaderFontSize() {
-      const el = reader;
-      let size = parseFloat(window.getComputedStyle(el).fontSize);
-
-      while (el.scrollWidth > el.clientWidth && size > 10) {
-        size -= 2;
-        el.style.fontSize = size + "px";
-      }
-    }
-
-    /* -------------------------
-       Start / Pause / Resume / Stop
-       ------------------------- */
-    function startReading() {
-      const text = inputText.value.trim();
-      if (!text) return;
-
-      words = text.split(/\s+/);
-      if (index >= words.length) index = 0;
-
-      paused = false;
-      clearInterval(interval);
-      delay = 60000 / parseInt(speedControl.value, 10);
-
-      document.body.classList.add("reading");
-
-      ui.style.opacity = "0";
-      setTimeout(() => (ui.style.display = "none"), 500);
-
-      reader.style.display = "block";
-      interval = setInterval(showWord, delay);
-
-      updateSaveProgressButton();
-    }
-
-    function pauseReading() {
-      clearInterval(interval);
-      interval = null;
-      paused = true;
-    }
-
-    function resumeReading() {
-      if (!interval && index < words.length) {
-        paused = false;
-        interval = setInterval(showWord, delay);
-      }
-    }
-
-    function stopReading() {
-      clearInterval(interval);
-      interval = null;
-      index = 0;
-      paused = false;
-
-      reader.innerHTML = "";
-      reader.style.display = "none";
-
-      document.body.classList.remove("reading");
-
-      ui.style.display = "flex";
-      setTimeout(() => (ui.style.opacity = "1"), 10);
-    }
-
-    function showWord() {
-      if (index >= words.length) {
-        stopReading();
-        return;
-      }
-
-      const group = getWordGroup();
-      reader.innerHTML = group.map(highlightORP).join(" ");
-
-      adjustReaderFontSize();
-
-      const lastWord = group[group.length - 1];
-      const mult = punctuationDelayMultiplier(lastWord);
-
-      clearInterval(interval);
-      interval = setInterval(showWord, delay * mult);
-    }
-
-    /* -------------------------
-       Skip / Rewind (Gesture Only)
-       ------------------------- */
-    function showIndicator(message) {
-      actionIndicator.textContent = message;
-      actionIndicator.style.transition = "none";
-      actionIndicator.style.opacity = "0";
-      void actionIndicator.offsetWidth;
-      actionIndicator.style.transition = "opacity 0.25s ease-in-out";
-      actionIndicator.style.opacity = "1";
-      setTimeout(() => { actionIndicator.style.opacity = "0"; }, 900);
-    }
-
-    function rewindWords() {
-      index = Math.max(0, index - SKIP_AMOUNT);
-      showIndicator("⏪ Rewind 50 words");
-    }
-
-    function skipWords() {
-      index = Math.min(words.length - 1, index + SKIP_AMOUNT);
-      showIndicator("⏩ Skip 50 words");
-    }
-
-    /* -------------------------
-       Touch Controls
+       URL Importer + PDF Extractor
        ------------------------- */
 
-    /* Single tap → Pause/Resume */
-    document.body.addEventListener("click", () => {
-      if (modalOpen) return;
-      if (reader.style.display === "none") return;
-      paused ? resumeReading() : pauseReading();
-    });
-
-    /* Double‑tap left/right → Skip/Rewind */
-    let lastTap = 0;
-    document.body.addEventListener("touchend", (e) => {
-      if (modalOpen) return;
-
-      const currentTime = Date.now();
-      const tapGap = currentTime - lastTap;
-
-      if (tapGap < 300) {
-        const x = e.changedTouches[0].clientX;
-        if (x < window.innerWidth * 0.5) rewindWords();
-        else skipWords();
-      }
-
-      lastTap = currentTime;
-    });
-
-    /* Swipe up/down from bottom → Adjust speed */
-    let touchStartY = null;
-    let touchStartX = null;
-    let touchFromBottom = false;
-
-    document.addEventListener("touchstart", (e) => {
-      if (modalOpen) return;
-      const t = e.changedTouches[0];
-      touchStartY = t.clientY;
-      touchStartX = t.clientX;
-      touchFromBottom = (touchStartY > window.innerHeight * 0.8);
-    });
-
-    document.addEventListener("touchend", (e) => {
-      if (modalOpen) return;
-      if (!touchFromBottom) return;
-
-      const t = e.changedTouches[0];
-      const dy = t.clientY - touchStartY;
-      const dx = t.clientX - touchStartX;
-
-      if (Math.abs(dy) > 30 && Math.abs(dy) > Math.abs(dx)) {
-        if (dy < 0) setSpeedWPM(parseInt(speedControl.value, 10) + 50);
-        else setSpeedWPM(parseInt(speedControl.value, 10) - 50);
-      }
-
-      touchStartY = null;
-      touchStartX = null;
-      touchFromBottom = false;
-    });
-
-    /* -------------------------
-       Keyboard Controls
-       ------------------------- */
-    document.addEventListener("keydown", (e) => {
-      if (modalOpen) return;
-
-      if (e.code === "Space") {
-        e.preventDefault();
-        paused ? resumeReading() : pauseReading();
-        return;
-      }
-      if (e.code === "ArrowLeft") { rewindWords(); return; }
-      if (e.code === "ArrowRight") { skipWords(); return; }
-      if (e.code === "Escape") {
-        if (document.fullscreenElement || document.webkitFullscreenElement) {
-          if (document.exitFullscreen) document.exitFullscreen();
-          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-        }
-        return;
-      }
-      if (e.key.toLowerCase() === "h") {
-        if (ui.style.display === "none") {
-          ui.style.display = "flex";
-          setTimeout(() => ui.style.opacity = "1", 10);
-        } else {
-          ui.style.opacity = "0";
-          setTimeout(() => ui.style.display = "none", 500);
-        }
-      }
-    });
-    /* -------------------------
-       Fullscreen + Hotspot Exit
-       ------------------------- */
-    function enterFullscreen() {
-      const elem = document.documentElement;
-      if (elem.requestFullscreen) elem.requestFullscreen();
-      else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
-      else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
-    }
-
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
-
-    function handleFullscreenChange() {
-      const fsElement =
-        document.fullscreenElement || document.webkitFullscreenElement;
-
-      if (!fsElement) {
-        pauseReading();
-
-        reader.style.display = "none";
-        document.body.classList.remove("reading");
-
-        ui.style.display = "flex";
-        setTimeout(() => (ui.style.opacity = "1"), 10);
-
-        exitHotspot.style.pointerEvents = "none";
-
-        showIndicator("⤓ Exit Fullscreen");
-      } else {
-        exitHotspot.style.pointerEvents = "auto";
-      }
-    }
-
-    /* Brave Android fallback: detect fullscreen exit via resize */
-    window.addEventListener("resize", () => {
-      const fs =
-        document.fullscreenElement || document.webkitFullscreenElement;
-      if (!fs) {
-        pauseReading();
-
-        reader.style.display = "none";
-        document.body.classList.remove("reading");
-
-        ui.style.display = "flex";
-        setTimeout(() => (ui.style.opacity = "1"), 10);
-
-        exitHotspot.style.pointerEvents = "none";
-
-        showIndicator("⤓ Exit Fullscreen");
-      }
-    });
-
-    /* Hotspot click exits fullscreen */
-    exitHotspot.addEventListener("click", () => {
-      if (document.fullscreenElement || document.webkitFullscreenElement) {
-        if (document.exitFullscreen) document.exitFullscreen();
-        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-      }
-    });
-
-    /* -------------------------
-       Utility
-       ------------------------- */
-    function escapeHtml(str) {
-      if (!str) return "";
-      return str.replace(/[&<>"']/g, (m) => ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;"
-      })[m]);
-    }
-
-    /* Close modals when clicking outside */
-    document.querySelectorAll(".modal").forEach((modal) => {
-      modal.addEventListener("click", (e) => {
-        if (e.target === modal) {
-          if (modal.id === "libraryModal") closeLibrary();
-          if (modal.id === "controlsModal") closeControls();
-        }
-      });
-    });
-
-    function openControls() {
-      modalOpen = true;
-      document.getElementById("controlsModal").style.display = "flex";
-    }
-
-    function closeControls() {
-      modalOpen = false;
-      document.getElementById("controlsModal").style.display = "none";
-    }
-
-    /* -------------------------
-       Import from URL / PDF
-       ------------------------- */
     async function importFromUrl() {
       const url = importUrl.value.trim();
       if (!url) {
@@ -781,7 +1120,6 @@
         const resp = await fetch(url, { method: "GET" });
         const contentType = resp.headers.get("content-type") || "";
 
-        /* PDF */
         if (
           contentType.includes("application/pdf") ||
           url.toLowerCase().endsWith(".pdf")
@@ -800,7 +1138,6 @@
           return;
         }
 
-        /* HTML / Article */
         const html = await resp.text();
         const doc = new DOMParser().parseFromString(html, "text/html");
 
@@ -876,6 +1213,7 @@
     /* -------------------------
        Auto‑Resume Draft
        ------------------------- */
+
     const LS_DRAFT_KEY = "rsvp_lastDraft";
     const LS_DRAFT_POS_KEY = "rsvp_lastDraftPosition";
     const LS_AUTO_RESUME_KEY = "rsvp_autoResumeDraftEnabled";
@@ -936,6 +1274,7 @@
     /* -------------------------
        Initialization
        ------------------------- */
+
     window.addEventListener("load", () => {
       loadDraftOnStartup();
       updateSaveProgressButton();
@@ -945,6 +1284,7 @@
       saveLastDraft();
       saveLastDraftPosition();
     });
+
   </script>
 
 </body>

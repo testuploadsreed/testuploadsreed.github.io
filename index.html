@@ -2,9 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>RSVP Reader — True Fullscreen + Swipe Controls</title>
+  <title>RSVP Reader — True Fullscreen + Library + Lines</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
   <style>
     :root {
       --bg: #0f172a;
@@ -36,6 +35,12 @@
         "Segoe UI", sans-serif;
       background: radial-gradient(circle at top, #1e293b 0, #020617 55%);
       color: var(--text);
+    }
+
+    body {
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
     }
 
     body.fullscreen-mode {
@@ -87,6 +92,12 @@
       color: var(--text-soft);
     }
 
+    .sidebar-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
     .sidebar-search {
       flex: 1;
       background: #020617;
@@ -95,7 +106,80 @@
       padding: 6px 9px;
       font-size: 12px;
       color: var(--text);
+      outline: none;
     }
+
+    .sidebar-search::placeholder {
+      color: #4b5563;
+    }
+
+    .library-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px 2px 4px 0;
+      margin-right: 2px;
+    }
+
+    .item-card {
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(148,163,184,0.25);
+      background: #020617;
+      padding: 8px 9px;
+      margin-bottom: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .item-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .item-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .item-meta {
+      font-size: 11px;
+      color: var(--text-soft);
+      white-space: nowrap;
+    }
+
+    .item-progress-bar {
+      width: 100%;
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.9);
+      overflow: hidden;
+    }
+
+    .item-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #22c55e, #a3e635);
+      width: 0%;
+    }
+
+    .item-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .item-actions .btn {
+      font-size: 10px;
+      padding: 4px 8px;
+    }
+
+    /* Buttons */
 
     .btn {
       border-radius: 999px;
@@ -104,7 +188,11 @@
       color: var(--text);
       font-size: 11px;
       padding: 6px 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
       cursor: pointer;
+      white-space: nowrap;
     }
 
     .btn-primary {
@@ -112,9 +200,18 @@
       color: var(--accent);
     }
 
+    .btn-ghost {
+      background: transparent;
+      border-color: rgba(148,163,184,0.25);
+    }
+
     .btn-danger {
       border-color: rgba(248,113,113,0.7);
       color: #fecaca;
+    }
+
+    .btn:active {
+      transform: translateY(1px);
     }
 
     /* Main */
@@ -130,26 +227,140 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 8px;
+    }
+
+    .top-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .app-title {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-soft);
+    }
+
+    .badge {
+      font-size: 10px;
+      padding: 3px 7px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.4);
+      color: var(--text-soft);
     }
 
     .controls-row {
       display: flex;
-      gap: 8px;
       flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
     }
 
-    /* Reader */
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text-soft);
+      padding: 5px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.25);
+      background: #020617;
+    }
 
+    .control-group label {
+      font-size: 11px;
+      color: var(--text-soft);
+    }
+
+    .control-group input[type="range"] {
+      width: 110px;
+    }
+
+    .pill-row {
+      display: inline-flex;
+      gap: 4px;
+      padding: 2px;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.9);
+      border: 1px solid rgba(148,163,184,0.25);
+    }
+
+    .pill {
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: none;
+      background: transparent;
+      color: var(--text-soft);
+      cursor: pointer;
+    }
+
+    .pill.active {
+      background: rgba(56,189,248,0.15);
+      color: var(--accent);
+    }
+
+    .panel {
+      flex: 1;
+      display: flex;
+      gap: 12px;
+    }
+
+    .editor-panel,
     .reader-panel {
       flex: 1;
       border-radius: var(--radius-lg);
       border: 1px solid rgba(148,163,184,0.25);
-      background: #000;
+      background: #020617;
+      box-shadow: var(--shadow-soft);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .editor-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      font-size: 11px;
+      color: var(--text-soft);
+    }
+
+    textarea {
+      flex: 1;
+      width: 100%;
+      resize: none;
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(148,163,184,0.25);
+      background: #020617;
+      color: var(--text);
+      padding: 10px;
+      font-size: 13px;
+      line-height: 1.5;
+      outline: none;
+    }
+
+    .editor-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--text-soft);
+    }
+
+    .reader-panel {
       display: none;
       align-items: center;
       justify-content: center;
       position: relative;
       overflow: hidden;
+      background: #000;
     }
 
     .reader-panel.active {
@@ -166,7 +377,9 @@
     .orp-word {
       font-size: 64px;
       font-weight: 500;
+      letter-spacing: 0.04em;
       color: var(--text);
+      font-variant-ligatures: none;
       white-space: nowrap;
     }
 
@@ -180,8 +393,6 @@
       color: var(--text-soft);
     }
 
-    /* Fullscreen controls */
-
     .fullscreen-controls {
       position: absolute;
       left: 50%;
@@ -193,12 +404,42 @@
       gap: 6px;
       opacity: 0;
       pointer-events: none;
-      transition: opacity 0.3s;
+      transition: opacity var(--fade-duration) ease;
     }
 
     .fullscreen-controls.visible {
       opacity: 1;
       pointer-events: auto;
+    }
+
+    .fullscreen-buttons {
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .fullscreen-buttons .btn {
+      font-size: 11px;
+      padding: 5px 10px;
+    }
+
+    .fullscreen-speed {
+      width: 220px;
+      display: none;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text-soft);
+      justify-content: center;
+    }
+
+    .fullscreen-speed.visible {
+      display: flex;
+    }
+
+    .fullscreen-speed input[type="range"] {
+      width: 160px;
     }
 
     .indicator {
@@ -215,77 +456,391 @@
       opacity: 1;
     }
 
-    /* Hide UI in fullscreen */
+    @media (max-width: 900px) {
+      .app-shell {
+        flex-direction: column;
+        height: auto;
+      }
+      .sidebar {
+        width: 100%;
+        max-width: none;
+        order: 2;
+        height: 260px;
+      }
+      .main {
+        order: 1;
+        height: calc(100vh - 280px);
+      }
+      .panel {
+        flex-direction: column;
+      }
+    }
 
     body.fullscreen-mode .sidebar,
     body.fullscreen-mode .top-bar,
     body.fullscreen-mode .controls-row,
-    body.fullscreen-mode .editor-panel {
+    body.fullscreen-mode .editor-panel,
+    body.fullscreen-mode .editor-footer,
+    body.fullscreen-mode .editor-header,
+    body.fullscreen-mode #charCount {
       display: none !important;
     }
   </style>
 </head>
-
 <body>
   <div class="app-shell">
-    <!-- Sidebar -->
+    <!-- Sidebar / Library -->
     <aside class="sidebar">
       <div class="sidebar-header">
         <div>
           <div class="sidebar-title">Library</div>
           <div class="sidebar-summary" id="librarySummary">0 items</div>
         </div>
-        <button class="btn" id="newItemBtn">+ New</button>
+        <button class="btn btn-ghost" id="newItemBtn">+ New</button>
       </div>
 
-      <input type="text" id="librarySearch" class="sidebar-search" placeholder="Search..." />
-      <div id="libraryList" style="flex:1; overflow-y:auto;"></div>
+      <div class="sidebar-row">
+        <input
+          type="text"
+          id="librarySearch"
+          class="sidebar-search"
+          placeholder="Search titles or text..."
+        />
+        <button class="btn btn-ghost" id="exportLibraryBtn">Export</button>
+        <button class="btn btn-ghost" id="importLibraryBtn">Import</button>
+        <input
+          type="file"
+          id="libraryImportInput"
+          accept="application/json"
+          style="display:none"
+        />
+      </div>
+
+      <div class="library-list" id="libraryList"></div>
     </aside>
 
     <!-- Main -->
     <main class="main">
       <div class="top-bar">
-        <div class="app-title">RSVP Reader</div>
+        <div class="top-left">
+          <div class="app-title">RSVP Reader</div>
+          <div class="badge">M2‑C · True Fullscreen</div>
+        </div>
         <div class="controls-row">
           <button class="btn btn-primary" id="startBtn">Start</button>
-          <button class="btn" id="saveToLibraryBtn">Save</button>
+          <button class="btn" id="saveToLibraryBtn">Save to library</button>
         </div>
       </div>
 
-      <textarea id="inputText" style="flex:1; border-radius:12px; padding:12px; background:#020617; color:#fff;"></textarea>
-
-      <!-- Reader -->
-      <section class="reader-panel" id="readerPanel">
-        <div class="reader-inner">
-          <div class="orp-word" id="orpWord"></div>
-          <div class="reader-sub" id="readerSub"></div>
+      <div class="controls-row">
+        <div class="control-group">
+          <label>Speed</label>
+          <input type="range" id="speedControl" min="150" max="1200" step="50" value="400" />
+          <span id="speedValue">400</span>
+          <span>WPM</span>
         </div>
-
-        <div class="fullscreen-controls" id="fullscreenControls">
-          <div style="display:flex; gap:6px;">
-            <button class="btn" id="rewindBtn">⏪ -50</button>
-            <button class="btn" id="pauseBtn">Pause</button>
-            <button class="btn" id="resumeBtn" style="display:none;">Resume</button>
-            <button class="btn" id="stopBtn">Stop</button>
-            <button class="btn" id="skipBtn">+50 ⏩</button>
+        <div class="control-group">
+          <label>Font</label>
+          <input type="range" id="fontControl" min="32" max="80" step="2" value="64" />
+          <span id="fontValue">64</span>
+          <span>px</span>
+        </div>
+        <div class="control-group">
+          <label>ORP</label>
+          <input type="range" id="orpOffsetControl" min="0" max="4" step="1" value="2" />
+          <span id="orpOffsetValue">2</span>
+        </div>
+        <div class="control-group">
+          <label>Mode</label>
+          <div class="pill-row" id="modePills">
+            <button class="pill active" data-mode="single">Single</button>
+            <button class="pill" data-mode="conservative">Conservative</button>
+            <button class="pill" data-mode="balanced">Balanced</button>
+            <button class="pill" data-mode="semantic">Smart</button>
           </div>
         </div>
+      </div>
 
-        <div class="indicator" id="indicator"></div>
-      </section>
+      <div class="panel">
+        <!-- Editor -->
+        <section class="editor-panel" id="editorPanel">
+          <div style="flex:1;display:flex;flex-direction:column;">
+            <div class="editor-header">
+              <span>Source text</span>
+              <span id="charCount">0 characters</span>
+            </div>
+            <textarea id="inputText" placeholder="Paste or type your text here..."></textarea>
+            <div class="editor-footer">
+              <span>Every saved text is added to the library with progress tracking.</span>
+              <div style="display:flex;gap:6px;">
+                <button class="btn btn-ghost" id="clearTextBtn">Clear</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Reader -->
+        <section class="reader-panel" id="readerPanel">
+          <div class="reader-inner">
+            <div class="orp-word" id="orpWord"></div>
+            <div class="reader-sub" id="readerSub"></div>
+          </div>
+
+          <div class="fullscreen-controls" id="fullscreenControls">
+            <div class="fullscreen-buttons">
+              <button class="btn" id="rewindBtn">⏪ -50</button>
+              <button class="btn" id="pauseBtn">Pause</button>
+              <button class="btn" id="resumeBtn" style="display:none;">Resume</button>
+              <button class="btn" id="stopBtn">Stop</button>
+              <button class="btn" id="skipBtn">+50 ⏩</button>
+            </div>
+          </div>
+
+          <div class="indicator" id="indicator"></div>
+        </section>
+      </div>
     </main>
   </div>
 
   <script>
     /* ============================================================
-       TRUE FULLSCREEN + SWIPE‑LEFT CONTROLS
+       RSVP ENGINE
        ============================================================ */
 
-    const readerPanel = document.getElementById("readerPanel");
-    const fullscreenControls = document.getElementById("fullscreenControls");
-    const indicator = document.getElementById("indicator");
+    let rsvpWords = [];
+    let rsvpChunks = [];
+    let rsvpIndex = 0;
+    let rsvpMode = "single";
+    let rsvpSpeed = 400;
+    let rsvpDelay = 60000 / rsvpSpeed;
+    let rsvpPaused = false;
+    let rsvpRunning = false;
+    let rsvpLastFrame = 0;
+    let rsvpAccum = 0;
+    let rsvpORPOffset = 2;
+
+    let currentLibraryItemId = null;
+    let onProgressUpdate = null;
 
     let cleanMode = true;
+
+    const orpWord = document.getElementById("orpWord");
+    const readerPanel = document.getElementById("readerPanel");
+    const editorPanel = document.getElementById("editorPanel");
+    const readerSub = document.getElementById("readerSub");
+    const indicator = document.getElementById("indicator");
+
+    const startBtn = document.getElementById("startBtn");
+    const pauseBtn = document.getElementById("pauseBtn");
+    const resumeBtn = document.getElementById("resumeBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const rewindBtn = document.getElementById("rewindBtn");
+    const skipBtn = document.getElementById("skipBtn");
+
+    const fullscreenControls = document.getElementById("fullscreenControls");
+    const speedControl = document.getElementById("speedControl");
+    const speedValue = document.getElementById("speedValue");
+    const fontControl = document.getElementById("fontControl");
+    const fontValue = document.getElementById("fontValue");
+    const orpOffsetControl = document.getElementById("orpOffsetControl");
+    const orpOffsetValue = document.getElementById("orpOffsetValue");
+    const modePills = document.querySelectorAll("#modePills .pill");
+
+    const inputText = document.getElementById("inputText");
+    const charCount = document.getElementById("charCount");
+
+    function setSpeed(wpm) {
+      rsvpSpeed = wpm;
+      rsvpDelay = 60000 / wpm;
+      speedValue.textContent = wpm;
+      speedControl.value = wpm;
+    }
+
+    speedControl.addEventListener("input", () => setSpeed(+speedControl.value));
+
+    fontControl.addEventListener("input", () => {
+      const size = +fontControl.value;
+      fontValue.textContent = size;
+      orpWord.style.fontSize = size + "px";
+      ensureWordFits();
+    });
+
+    orpOffsetControl.addEventListener("input", () => {
+      rsvpORPOffset = +orpOffsetControl.value;
+      orpOffsetValue.textContent = rsvpORPOffset;
+    });
+
+    modePills.forEach((pill) => {
+      pill.addEventListener("click", () => {
+        modePills.forEach((p) => p.classList.remove("active"));
+        pill.classList.add("active");
+        rsvpMode = pill.dataset.mode;
+      });
+    });
+
+    inputText.addEventListener("input", () => {
+      charCount.textContent = inputText.value.length + " characters";
+    });
+
+    function tokenize(text) {
+      return text.replace(/\s+/g, " ").trim().split(" ");
+    }
+
+    function isBoundary(word) {
+      return /[.!?;:—–-]$/.test(word);
+    }
+
+    const PREP = new Set([
+      "in","on","at","to","for","from","with","about","against","between","into",
+      "through","during","before","after","above","below","under","over","within",
+      "without","across","behind","beyond","around","near","of","off","up","down","by"
+    ]);
+    const CONJ = new Set([
+      "and","but","or","so","yet","nor","for","although","though","because","while",
+      "whereas","unless","until","since","once"
+    ]);
+
+    function chunkConservative(arr) {
+      const out = [];
+      let cur = [];
+      for (const w of arr) {
+        cur.push(w);
+        if (isBoundary(w) || cur.length >= 3) {
+          out.push(cur.join(" "));
+          cur = [];
+        }
+      }
+      if (cur.length) out.push(cur.join(" "));
+      return out;
+    }
+
+    function chunkBalanced(arr) {
+      const out = [];
+      let cur = [];
+      for (const w of arr) {
+        const lw = w.toLowerCase();
+        cur.push(w);
+        if (isBoundary(w)) {
+          out.push(cur.join(" "));
+          cur = [];
+          continue;
+        }
+        if (cur.length <= 6 && (PREP.has(lw) || CONJ.has(lw))) continue;
+        if (cur.length >= 5) {
+          out.push(cur.join(" "));
+          cur = [];
+        }
+      }
+      if (cur.length) out.push(cur.join(" "));
+      return out;
+    }
+
+    function chunkSemantic(arr) {
+      const out = [];
+      let cur = [];
+      for (const w of arr) {
+        const lw = w.toLowerCase();
+        cur.push(w);
+        if (isBoundary(w)) {
+          out.push(cur.join(" "));
+          cur = [];
+          continue;
+        }
+        if (cur.length >= 7) {
+          out.push(cur.join(" "));
+          cur = [];
+          continue;
+        }
+        if (CONJ.has(lw) || PREP.has(lw)) continue;
+        if (cur.length >= 4) {
+          out.push(cur.join(" "));
+          cur = [];
+        }
+      }
+      if (cur.length) out.push(cur.join(" "));
+      return out;
+    }
+
+    function buildChunks(arr, mode) {
+      if (mode === "conservative") return chunkConservative(arr);
+      if (mode === "balanced") return chunkBalanced(arr);
+      if (mode === "semantic") return chunkSemantic(arr);
+      return arr;
+    }
+
+    function getORPIndex(word) {
+      const clean = word.replace(/^[^\w]+|[^\w]+$/g, "");
+      if (!clean) return 0;
+      return Math.min(rsvpORPOffset, clean.length - 1);
+    }
+
+    function highlightORP(word) {
+      const leading = word.match(/^[^\w]+/)?.[0] || "";
+      const trailing = word.match(/[^\w]+$/)?.[0] || "";
+      const core = word.replace(/^[^\w]+|[^\w]+$/g, "");
+      if (!core) return word;
+      const pivot = getORPIndex(core);
+      return (
+        leading +
+        core.slice(0, pivot) +
+        '<span class="orp">' +
+        core[pivot] +
+        "</span>" +
+        core.slice(pivot + 1) +
+        trailing
+      );
+    }
+
+    function highlightChunk(chunk) {
+      const parts = chunk.split(" ");
+      const mid = Math.floor(parts.length / 2);
+      parts[mid] = highlightORP(parts[mid]);
+      return parts.join(" ");
+    }
+
+    function ensureWordFits() {
+      const container = readerPanel;
+      const wordEl = orpWord;
+      if (!container || !wordEl) return;
+      const baseSize = +fontControl.value || 64;
+      let size = baseSize;
+      wordEl.style.fontSize = size + "px";
+      if (wordEl.scrollWidth <= container.clientWidth * 0.95) return;
+      while (wordEl.scrollWidth > container.clientWidth * 0.95 && size > 20) {
+        size -= 2;
+        wordEl.style.fontSize = size + "px";
+      }
+    }
+
+    function renderToken() {
+      if (rsvpMode === "single") {
+        orpWord.innerHTML = highlightORP(rsvpWords[rsvpIndex] || "");
+      } else {
+        orpWord.innerHTML = highlightChunk(rsvpChunks[rsvpIndex] || "");
+      }
+      readerSub.textContent =
+        (rsvpIndex + 1) + " / " +
+        (rsvpMode === "single" ? rsvpWords.length : rsvpChunks.length);
+      ensureWordFits();
+    }
+
+    function computeDelay(token) {
+      const last = token.trim().slice(-1);
+      if (/[.!?]/.test(last)) return rsvpDelay * 3;
+      if (/[,;:]/.test(last)) return rsvpDelay * 2;
+      return rsvpDelay;
+    }
+
+    function showIndicator(text) {
+      indicator.textContent = text;
+      indicator.classList.add("visible");
+      clearTimeout(showIndicator._t);
+      showIndicator._t = setTimeout(() => {
+        indicator.classList.remove("visible");
+      }, 800);
+    }
+
+    /* TRUE FULLSCREEN ON READER PANEL */
 
     function enterFullscreenReal() {
       const el = readerPanel;
@@ -299,6 +854,7 @@
       document.body.classList.add("fullscreen-mode");
       cleanMode = true;
       updateControlsVisibility();
+      ensureWordFits();
     }
 
     function exitFullscreenReal() {
@@ -311,17 +867,145 @@
       document.body.classList.remove("fullscreen-mode");
       cleanMode = true;
       updateControlsVisibility();
+      ensureWordFits();
     }
 
     function updateControlsVisibility() {
+      const inFs = document.body.classList.contains("fullscreen-mode");
+      if (!inFs) {
+        fullscreenControls.classList.remove("visible");
+        readerSub.style.display = "block";
+        return;
+      }
       if (cleanMode) {
         fullscreenControls.classList.remove("visible");
+        readerSub.style.display = "none";
       } else {
         fullscreenControls.classList.add("visible");
+        readerSub.style.display = "block";
       }
     }
 
-    /* Swipe-left / swipe-right */
+    function forceStartReading(startIndex = 0, fullscreen = false) {
+      const text = inputText.value.trim();
+      if (!text) return;
+      rsvpWords = tokenize(text);
+      rsvpChunks = buildChunks(rsvpWords, rsvpMode);
+      const maxIndex =
+        (rsvpMode === "single" ? rsvpWords.length : rsvpChunks.length) - 1;
+      rsvpIndex = Math.max(0, Math.min(startIndex, maxIndex));
+      rsvpRunning = true;
+      rsvpPaused = false;
+      rsvpAccum = 0;
+      rsvpLastFrame = performance.now();
+      editorPanel.style.display = "none";
+      readerPanel.classList.add("active");
+      pauseBtn.style.display = "inline-flex";
+      resumeBtn.style.display = "none";
+      if (fullscreen) {
+        enterFullscreenReal();
+      } else {
+        document.body.classList.remove("fullscreen-mode");
+        cleanMode = false;
+        updateControlsVisibility();
+      }
+      renderToken();
+      requestAnimationFrame(loop);
+    }
+
+    function startReading() {
+      currentLibraryItemId = autoAddCurrentText();
+      // Auto fullscreen on start (your choice B)
+      forceStartReading(0, true);
+    }
+
+    function loop(ts) {
+      if (!rsvpRunning || rsvpPaused) return;
+      const delta = ts - rsvpLastFrame;
+      rsvpLastFrame = ts;
+      rsvpAccum += delta;
+      const token =
+        rsvpMode === "single" ? rsvpWords[rsvpIndex] : rsvpChunks[rsvpIndex];
+      const delay = computeDelay(token || "");
+      if (rsvpAccum >= delay) {
+        rsvpAccum -= delay;
+        advance();
+      }
+      if (rsvpRunning) requestAnimationFrame(loop);
+    }
+
+    function advance() {
+      const max =
+        rsvpMode === "single" ? rsvpWords.length : rsvpChunks.length;
+      rsvpIndex++;
+      if (rsvpIndex >= max) {
+        stopReading();
+        return;
+      }
+      renderToken();
+      if (onProgressUpdate && currentLibraryItemId) {
+        onProgressUpdate(currentLibraryItemId, rsvpIndex, rsvpMode, rsvpSpeed);
+      }
+    }
+
+    function pauseReading() {
+      if (!rsvpRunning || rsvpPaused) return;
+      rsvpPaused = true;
+      pauseBtn.style.display = "none";
+      resumeBtn.style.display = "inline-flex";
+      showIndicator("Paused");
+      updateControlsVisibility();
+    }
+
+    function resumeReading() {
+      if (!rsvpRunning || !rsvpPaused) return;
+      rsvpPaused = false;
+      resumeBtn.style.display = "none";
+      pauseBtn.style.display = "inline-flex";
+      rsvpLastFrame = performance.now();
+      requestAnimationFrame(loop);
+      showIndicator("Resume");
+      updateControlsVisibility();
+    }
+
+    function stopReading() {
+      rsvpRunning = false;
+      rsvpPaused = false;
+      rsvpIndex = 0;
+      orpWord.innerHTML = "";
+      readerSub.textContent = "";
+      editorPanel.style.display = "flex";
+      readerPanel.classList.remove("active");
+      pauseBtn.style.display = "inline-flex";
+      resumeBtn.style.display = "none";
+      exitFullscreenReal();
+    }
+
+    function rewind() {
+      const max =
+        rsvpMode === "single" ? rsvpWords.length : rsvpChunks.length;
+      rsvpIndex = Math.max(0, rsvpIndex - 50);
+      if (rsvpIndex >= max) rsvpIndex = max - 1;
+      renderToken();
+      showIndicator("⏪ -50");
+    }
+
+    function skip() {
+      const max =
+        rsvpMode === "single" ? rsvpWords.length : rsvpChunks.length;
+      rsvpIndex = Math.min(max - 1, rsvpIndex + 50);
+      renderToken();
+      showIndicator("+50 ⏩");
+    }
+
+    startBtn.addEventListener("click", startReading);
+    pauseBtn.addEventListener("click", pauseReading);
+    resumeBtn.addEventListener("click", resumeReading);
+    stopBtn.addEventListener("click", stopReading);
+    rewindBtn.addEventListener("click", rewind);
+    skipBtn.addEventListener("click", skip);
+
+    /* Swipe-left / swipe-right to toggle controls */
 
     let touchStartX = null;
 
@@ -351,104 +1035,279 @@
       touchStartX = null;
     });
 
+    document.addEventListener("fullscreenchange", () => {
+      const fs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+      if (fs) {
+        document.body.classList.add("fullscreen-mode");
+        cleanMode = true;
+      } else {
+        document.body.classList.remove("fullscreen-mode");
+        cleanMode = true;
+      }
+      updateControlsVisibility();
+      ensureWordFits();
+    });
+
+    window.addEventListener("resize", ensureWordFits);
+
+    setSpeed(400);
+    fontValue.textContent = fontControl.value;
+    orpOffsetValue.textContent = orpOffsetControl.value;
+
     /* ============================================================
-       RSVP ENGINE (shortened for clarity — same logic as before)
+       LIBRARY ENGINE + LINE NUMBERS
        ============================================================ */
 
-    let rsvpWords = [];
-    let rsvpIndex = 0;
-    let rsvpSpeed = 400;
-    let rsvpDelay = 60000 / rsvpSpeed;
-    let rsvpPaused = false;
-    let rsvpRunning = false;
+    const LIB_KEY = "rsvp_library_v1";
 
-    const inputText = document.getElementById("inputText");
-    const orpWord = document.getElementById("orpWord");
-    const readerSub = document.getElementById("readerSub");
-
-    function tokenize(text) {
-      return text.replace(/\s+/g, " ").trim().split(" ");
-    }
-
-    function highlightORP(word) {
-      const pivot = Math.min(2, word.length - 1);
-      return (
-        word.slice(0, pivot) +
-        '<span class="orp">' +
-        word[pivot] +
-        "</span>" +
-        word.slice(pivot + 1)
-      );
-    }
-
-    function renderToken() {
-      const word = rsvpWords[rsvpIndex] || "";
-      orpWord.innerHTML = highlightORP(word);
-      readerSub.textContent = `${rsvpIndex + 1} / ${rsvpWords.length}`;
-    }
-
-    function loop(ts) {
-      if (!rsvpRunning || rsvpPaused) return;
-
-      rsvpIndex++;
-      if (rsvpIndex >= rsvpWords.length) {
-        stopReading();
-        return;
+    let library = (() => {
+      try {
+        const raw = localStorage.getItem(LIB_KEY);
+        if (!raw) return { items: {} };
+        const parsed = JSON.parse(raw);
+        if (!parsed.items) parsed.items = {};
+        return parsed;
+      } catch {
+        return { items: {} };
       }
+    })();
 
-      renderToken();
-      setTimeout(() => requestAnimationFrame(loop), rsvpDelay);
+    const libraryList = document.getElementById("libraryList");
+    const librarySearch = document.getElementById("librarySearch");
+    const librarySummary = document.getElementById("librarySummary");
+    const saveToLibraryBtn = document.getElementById("saveToLibraryBtn");
+    const newItemBtn = document.getElementById("newItemBtn");
+    const exportLibraryBtn = document.getElementById("exportLibraryBtn");
+    const importLibraryBtn = document.getElementById("importLibraryBtn");
+    const libraryImportInput = document.getElementById("libraryImportInput");
+    const clearTextBtn = document.getElementById("clearTextBtn");
+
+    function uid() {
+      return "i_" + Math.random().toString(36).slice(2, 10);
     }
 
-    function startReading() {
+    function snippet(text) {
+      const t = text.trim().replace(/\s+/g, " ");
+      return t.length > 80 ? t.slice(0, 80) + "…" : t || "Untitled";
+    }
+
+    function saveLibrary() {
+      try {
+        localStorage.setItem(LIB_KEY, JSON.stringify(library));
+      } catch {}
+    }
+
+    function computeLineFromWordIndex(text, wordIndex) {
+      if (!text) return 0;
+      const words = text.split(/\s+/);
+      const targetWord = words[wordIndex] || "";
+      if (!targetWord) return 0;
+      const pos = text.indexOf(targetWord);
+      if (pos === -1) return 0;
+      const lines = text.split(/\r?\n/);
+      let charCount = 0;
+      for (let i = 0; i < lines.length; i++) {
+        charCount += lines[i].length + 1;
+        if (charCount > pos) return i;
+      }
+      return lines.length - 1;
+    }
+
+    function computeWordIndexFromLine(text, lineNumber) {
+      if (!text) return 0;
+      const lines = text.split(/\r?\n/);
+      const safeLine = Math.max(0, Math.min(lineNumber, lines.length - 1));
+      const before = lines.slice(0, safeLine).join(" ");
+      if (!before.trim()) return 0;
+      return before.trim().split(/\s+/).length;
+    }
+
+    function autoAddCurrentText() {
       const text = inputText.value.trim();
-      if (!text) return;
-
-      rsvpWords = tokenize(text);
-      rsvpIndex = 0;
-      rsvpRunning = true;
-      rsvpPaused = false;
-
-      readerPanel.classList.add("active");
-      enterFullscreenReal();
-      renderToken();
-      requestAnimationFrame(loop);
+      if (!text) return null;
+      for (const id in library.items) {
+        if (library.items[id].content === text) {
+          return id;
+        }
+      }
+      const id = uid();
+      library.items[id] = {
+        id,
+        title: snippet(text),
+        content: text,
+        created: Date.now(),
+        updated: Date.now(),
+        progress: {
+          index: 0,
+          line: 0,
+          mode: rsvpMode,
+          speed: rsvpSpeed,
+          timestamp: Date.now()
+        }
+      };
+      saveLibrary();
+      renderLibrary();
+      return id;
     }
 
-    function pauseReading() {
-      rsvpPaused = true;
-      document.getElementById("pauseBtn").style.display = "none";
-      document.getElementById("resumeBtn").style.display = "inline-flex";
+    function renderLibrary() {
+      const query = librarySearch.value.toLowerCase();
+      libraryList.innerHTML = "";
+      const items = Object.values(library.items).sort(
+        (a, b) => b.updated - a.updated
+      );
+      let count = 0;
+      for (const item of items) {
+        const haystack =
+          (item.title || "").toLowerCase() +
+          " " +
+          (item.content || "").toLowerCase();
+        if (query && !haystack.includes(query)) continue;
+        count++;
+        const totalWords = (item.content || "").split(/\s+/).filter(Boolean)
+          .length;
+        const idx = item.progress?.index || 0;
+        const pct =
+          totalWords > 0 ? Math.min(100, Math.floor((idx / totalWords) * 100)) : 0;
+        const line = item.progress?.line ?? 0;
+        const card = document.createElement("div");
+        card.className = "item-card";
+        card.dataset.id = item.id;
+        card.innerHTML = `
+          <div class="item-title-row">
+            <div class="item-title" title="${item.title}">${item.title}</div>
+            <div class="item-meta">${pct}% · line ${line + 1}</div>
+          </div>
+          <div class="item-progress-bar">
+            <div class="item-progress-fill" style="width:${pct}%"></div>
+          </div>
+          <div class="item-actions">
+            <button class="btn btn-primary btn-continue">Continue</button>
+            <button class="btn btn-ghost btn-restart">Start over</button>
+            <button class="btn btn-ghost btn-jump">Jump to line</button>
+            <button class="btn btn-ghost btn-rename">Rename</button>
+            <button class="btn btn-danger btn-delete">Delete</button>
+          </div>
+        `;
+        libraryList.appendChild(card);
+      }
+      librarySummary.textContent = count + " item" + (count === 1 ? "" : "s");
+      attachItemEvents();
     }
 
-    function resumeReading() {
-      rsvpPaused = false;
-      document.getElementById("resumeBtn").style.display = "none";
-      document.getElementById("pauseBtn").style.display = "inline-flex";
-      requestAnimationFrame(loop);
+    function attachItemEvents() {
+      libraryList.querySelectorAll(".item-card").forEach((card) => {
+        const id = card.dataset.id;
+        const item = library.items[id];
+        if (!item) return;
+        card.querySelector(".btn-continue").onclick = () => {
+          openItem(id, true);
+        };
+        card.querySelector(".btn-restart").onclick = () => {
+          openItem(id, false);
+        };
+        card.querySelector(".btn-jump").onclick = () => {
+          const lineStr = prompt(
+            "Enter line number to jump to (1-based):",
+            (item.progress?.line ?? 0) + 1
+          );
+          if (!lineStr) return;
+          const lineNum = parseInt(lineStr, 10);
+          if (isNaN(lineNum) || lineNum < 1) return;
+          const index = computeWordIndexFromLine(item.content, lineNum - 1);
+          forceStartReading(index, true);
+        };
+        card.querySelector(".btn-rename").onclick = () => {
+          const name = prompt("Rename item:", item.title || "Untitled");
+          if (!name) return;
+          item.title = name.trim();
+          item.updated = Date.now();
+          saveLibrary();
+          renderLibrary();
+        };
+        card.querySelector(".btn-delete").onclick = () => {
+          if (!confirm("Delete this item?")) return;
+          delete library.items[id];
+          saveLibrary();
+          renderLibrary();
+        };
+      });
     }
 
-    function stopReading() {
-      rsvpRunning = false;
-      rsvpPaused = false;
-      readerPanel.classList.remove("active");
-      exitFullscreenReal();
+    function openItem(id, resume) {
+      const item = library.items[id];
+      if (!item) return;
+      inputText.value = item.content || "";
+      charCount.textContent = inputText.value.length + " characters";
+      currentLibraryItemId = id;
+      const startIndex = resume ? item.progress?.index || 0 : 0;
+      forceStartReading(startIndex, true);
     }
 
-    document.getElementById("startBtn").onclick = startReading;
-    document.getElementById("pauseBtn").onclick = pauseReading;
-    document.getElementById("resumeBtn").onclick = resumeReading;
-    document.getElementById("stopBtn").onclick = stopReading;
+    saveToLibraryBtn.addEventListener("click", () => {
+      const id = autoAddCurrentText();
+      if (id) showIndicator("Saved");
+    });
 
-    document.getElementById("rewindBtn").onclick = () => {
-      rsvpIndex = Math.max(0, rsvpIndex - 50);
-      renderToken();
+    newItemBtn.addEventListener("click", () => {
+      inputText.value = "";
+      charCount.textContent = "0 characters";
+      inputText.focus();
+    });
+
+    clearTextBtn.addEventListener("click", () => {
+      inputText.value = "";
+      charCount.textContent = "0 characters";
+    });
+
+    librarySearch.addEventListener("input", renderLibrary);
+
+    exportLibraryBtn.addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(library, null, 2)], {
+        type: "application/json"
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "rsvp_library.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    importLibraryBtn.addEventListener("click", () => {
+      libraryImportInput.value = "";
+      libraryImportInput.click();
+    });
+
+    libraryImportInput.addEventListener("change", async () => {
+      const file = libraryImportInput.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        if (!data.items) throw new Error();
+        library = data;
+        saveLibrary();
+        renderLibrary();
+      } catch {
+        alert("Invalid library file.");
+      }
+    });
+
+    onProgressUpdate = (id, index, mode, speed) => {
+      const item = library.items[id];
+      if (!item) return;
+      item.progress.index = index;
+      item.progress.mode = mode;
+      item.progress.speed = speed;
+      item.progress.line = computeLineFromWordIndex(item.content, index);
+      item.progress.timestamp = Date.now();
+      item.updated = Date.now();
+      saveLibrary();
+      renderLibrary();
     };
 
-    document.getElementById("skipBtn").onclick = () => {
-      rsvpIndex = Math.min(rsvpWords.length - 1, rsvpIndex + 50);
-      renderToken();
-    };
+    renderLibrary();
   </script>
 </body>
 </html>

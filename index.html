@@ -2,9 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>RSVP Reader — Fixed ORP + Phrase Chunking</title>
+  <title>RSVP Reader — Minimal Black (Patched)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-
   <style>
     body {
       background-color: black;
@@ -19,15 +18,12 @@
       overflow: hidden;
       touch-action: manipulation;
     }
-
-    /* UI container */
     #ui {
       display: flex;
       flex-direction: column;
       align-items: center;
       transition: opacity 0.5s ease;
     }
-
     textarea {
       width: 80%;
       height: 120px;
@@ -36,24 +32,21 @@
       color: white;
       border: 1px solid #444;
       padding: 10px;
-      font-size: 1.2em;
+      font-size: 1.1em;
     }
-
     button {
-      margin: 5px;
-      padding: 10px 20px;
+      margin: 4px;
+      padding: 8px 16px;
       background: #222;
       color: white;
       border: 1px solid #444;
       cursor: pointer;
-      font-size: 1.1em;
+      font-size: 0.95em;
+      border-radius: 4px;
     }
-    button:hover { background: #333; }
-
-    /* -------------------------
-       FIXED ORP READING COLUMN
-       ------------------------- */
-
+    button:hover {
+      background: #333;
+    }
     #orpContainer {
       width: 60vw;
       max-width: 60vw;
@@ -65,7 +58,6 @@
       overflow: visible;
       user-select: none;
     }
-
     #orpWord {
       font-size: 10vw;
       line-height: 1.2;
@@ -73,12 +65,9 @@
       white-space: nowrap;
       position: relative;
     }
-
     .highlight {
-      color: red;
+      color: #ff4b4b;
     }
-
-    /* Fullscreen exit hotspot */
     #exitFullscreenHotspot {
       position: fixed;
       top: 0;
@@ -89,84 +78,36 @@
       pointer-events: none;
       z-index: 9999999;
     }
-
-    /* Speed overlay */
     #speedOverlay {
       position: fixed;
       bottom: 20px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(0,0,0,0.6);
-      padding: 10px 20px;
+      background: rgba(0,0,0,0.7);
+      padding: 10px 16px;
       border-radius: 10px;
       z-index: 999999;
       opacity: 0;
       transition: opacity 0.3s ease;
       pointer-events: none;
       display: flex;
-      gap: 12px;
+      gap: 10px;
       align-items: center;
+      font-size: 0.9em;
     }
     #speedOverlay.visible {
       opacity: 1;
       pointer-events: auto;
     }
-
     #exitMenuBtn {
-      padding: 6px 12px;
-      font-size: 0.9em;
+      padding: 4px 8px;
+      font-size: 0.8em;
       background:#333;
       border:1px solid #666;
       color:white;
       border-radius:6px;
       display:none;
     }
-
-    /* Modals */
-    .modal {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(0,0,0,0.8);
-      display: none;
-      justify-content: center;
-      align-items: center;
-      z-index: 999;
-    }
-
-    .modal-content {
-      background: #222;
-      padding: 20px;
-      border: 1px solid #444;
-      width: 80%;
-      max-width: 700px;
-      max-height: 80%;
-      overflow-y: auto;
-    }
-
-    #actionIndicator {
-      position: fixed;
-      bottom: 30px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.6);
-      color: white;
-      padding: 10px 20px;
-      border-radius: 10px;
-      font-size: 1.4em;
-      opacity: 0;
-      transition: opacity 0.25s ease-in-out;
-      pointer-events: none;
-      z-index: 999999;
-    }
-
-    /* Hide reading-only controls unless reading */
-    body:not(.reading) #orpContainer,
-    body:not(.reading) .reading-control {
-      display: none !important;
-    }
-
-    /* Reading Mode Selector */
     .modeSelector {
       margin-top: 10px;
       padding: 10px;
@@ -175,203 +116,324 @@
       width: 80%;
       max-width: 500px;
       border-radius: 6px;
+      font-size: 0.9em;
     }
     .modeSelector label {
       display: block;
       margin: 4px 0;
       cursor: pointer;
     }
+    .controls-row {
+      margin-top: 6px;
+      font-size: 0.9em;
+    }
+    .controls-row label {
+      margin-right: 10px;
+    }
+    body:not(.reading) #orpContainer {
+      display: none !important;
+    }
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.8);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+    }
+    .modal-content {
+      background: #111;
+      padding: 16px;
+      border: 1px solid #444;
+      width: 90%;
+      max-width: 900px;
+      max-height: 85%;
+      overflow-y: auto;
+      border-radius: 6px;
+      font-size: 0.9em;
+    }
+    #actionIndicator {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-size: 1.1em;
+      opacity: 0;
+      transition: opacity 0.25s ease-in-out;
+      pointer-events: none;
+      z-index: 999999;
+    }
+    /* Library UI */
+    #libraryFolders {
+      margin-bottom: 10px;
+      border-bottom: 1px solid #333;
+      padding-bottom: 8px;
+    }
+    .folder-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 0;
+      border-bottom: 1px solid #222;
+    }
+    .folder-row span {
+      cursor: pointer;
+    }
+    .item-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 0;
+      border-bottom: 1px solid #222;
+    }
+    .item-main {
+      flex: 1;
+      cursor: pointer;
+    }
+    .item-meta {
+      font-size: 0.8em;
+      color: #aaa;
+    }
+    .tiny-btn {
+      font-size: 0.75em;
+      padding: 2px 5px;
+      margin-left: 4px;
+      border-radius: 3px;
+    }
+    .section-title {
+      margin-top: 8px;
+      margin-bottom: 4px;
+      font-weight: bold;
+    }
   </style>
 
-  <!-- Readability + PDF.js -->
-  <script src="https://unpkg.com/@mozilla/readability@0.4.4/Readability.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.9.179/pdf.min.js"></script>
+  <script src="https://unpkg.com/@mozilla/readability@0.4.4/Readability.js"></script>
 </head>
-
 <body>
-
-  <!-- UI -->
   <div id="ui">
-    <h1>RSVP Reader</h1>
+    <h2>RSVP Reader</h2>
 
-    <textarea id="inputText" placeholder="Paste text here..."></textarea>
+    <textarea id="inputText" placeholder="Paste or import text here..."></textarea>
 
-    <!-- Reading Mode Selector -->
     <div class="modeSelector">
-      <strong>Reading Mode:</strong><br>
+      <div><strong>Reading Mode</strong></div>
       <label><input type="radio" name="mode" value="single" checked> Single Word</label>
       <label><input type="radio" name="mode" value="conservative"> Phrase Chunking — Conservative</label>
       <label><input type="radio" name="mode" value="balanced"> Phrase Chunking — Balanced</label>
+      <label><input type="radio" name="mode" value="semantic"> Smart Chunking 2.0 (semantic-ish)</label>
     </div>
 
-    <div class="controls">
-      <label>Speed (WPM):
+    <div class="controls-row">
+      <label>Speed:
         <input type="range" id="speedControl" min="100" max="1000" value="300" step="50">
-        <span id="speedValue">300</span>
+        <span id="speedValue">300</span> WPM
+      </label>
+      <label>Font:
+        <input type="range" id="fontControl" min="24" max="80" value="48" step="2">
+        <span id="fontValue">48</span> px
+      </label>
+      <label>ORP offset:
+        <input type="range" id="orpOffsetControl" min="0" max="4" value="2" step="1">
+        <span id="orpOffsetValue">2</span>
       </label>
     </div>
 
-    <div>
+    <div style="margin-top:8px;">
       <button onclick="startReading()">Start</button>
-      <button class="reading-control" onclick="pauseReading()">Pause</button>
-      <button class="reading-control" onclick="resumeReading()">Resume</button>
-      <button class="reading-control" onclick="stopReading()">Stop</button>
-      <button onclick="enterFullscreen()">Full Screen</button>
-      <button id="saveProgressBtn" style="display:none;" onclick="saveProgressToLibrary()">Save Progress</button>
+      <button id="pauseBtn" style="display:none;" onclick="pauseReading()">Pause</button>
+      <button id="resumeBtn" style="display:none;" onclick="resumeReading()">Resume</button>
+      <button id="stopBtn" style="display:none;" onclick="stopReading()">Stop</button>
+      <button onclick="enterFullscreen()">Fullscreen</button>
+      <button id="saveProgressBtn" style="display:none;" onclick="saveProgressToCurrentItem()">Save Progress</button>
+      <button id="saveToLibraryBtn" style="display:inline-block;" onclick="saveCurrentAsNewItem()">Save to Library</button>
+    </div>
+
+    <!-- Skip/rewind row, controlled via JS -->
+    <div id="skipRewindRow" style="margin-top:6px; display:none;">
+      <button onclick="rewindWords()">⏪ Rewind 50</button>
+      <button onclick="skipWords()">⏩ Skip 50</button>
     </div>
 
     <div style="margin-top:8px;">
       <button onclick="triggerFileLoad()">Load .txt</button>
       <button onclick="saveTextFile()">Save .txt</button>
-      <button onclick="saveToLibrary()">Save to Library</button>
-      <button onclick="openLibrary()">Library</button>
-      <button onclick="openControls()">Controls</button>
+      <button onclick="openImportModal()">Import URL / PDF</button>
     </div>
 
-    <input type="file" id="fileInput" accept=".txt">
+    <div style="margin-top:8px;">
+      <button onclick="openLibrary()">Library</button>
+      <button onclick="exportLibrary()">Export Library</button>
+      <button onclick="triggerLibraryImport()">Import Library</button>
+      <input type="file" id="libraryImportInput" accept=".json" style="display:none;">
+    </div>
+
+    <input type="file" id="fileInput" accept=".txt,.pdf" style="display:none;">
   </div>
 
-  <!-- FIXED-ORP READING COLUMN -->
-  <div id="orpContainer" class="reading-control">
+  <div id="orpContainer">
     <span id="orpWord"></span>
   </div>
 
-  <!-- Speed slider overlay -->
-  <div id="speedOverlay" class="reading-control">
+  <div id="speedOverlay">
+    <span>Speed:</span>
     <input type="range" id="speedControl2" min="100" max="1000" value="300" step="50">
-    <span id="speedValue2">300</span>
-    <button id="exitMenuBtn">Exit Menu</button>
+    <span id="speedValue2">300</span> WPM
+    <button id="exitMenuBtn">Exit</button>
   </div>
 
-  <!-- Hidden fullscreen exit hotspot -->
   <div id="exitFullscreenHotspot"></div>
+
+  <div id="actionIndicator"></div>
 
   <!-- Library Modal -->
   <div id="libraryModal" class="modal">
     <div class="modal-content">
-      <h2>Saved Texts</h2>
-      <div id="libraryList"></div>
-      <button onclick="closeLibrary()">Close</button>
+      <h3>Library</h3>
+      <div style="margin-bottom:6px;">
+        <button onclick="createFolderPrompt()">+ Folder</button>
+        <button onclick="saveCurrentAsNewItem()">+ Item from Editor</button>
+      </div>
+      <div id="libraryFolders"></div>
+      <div id="libraryItems"></div>
+      <div style="margin-top:8px;text-align:right;">
+        <button onclick="closeLibrary()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Import Modal -->
+  <div id="importModal" class="modal">
+    <div class="modal-content">
+      <h3>Import Content</h3>
+      <div class="section-title">From URL (article)</div>
+      <input id="importUrl" style="width:100%;padding:4px;background:#111;border:1px solid #444;color:white;" placeholder="https://example.com/article">
+      <div style="margin-top:4px;">
+        <button onclick="importFromUrl()">Import Article</button>
+        <span id="importStatus" style="margin-left:8px;color:#ccc;"></span>
+      </div>
+
+      <div class="section-title">From PDF</div>
+      <button onclick="triggerPdfLoad()">Select PDF</button>
+
+      <div style="margin-top:10px;">
+        <label><input type="checkbox" id="autoStartImport"> Auto‑start reading after import</label>
+      </div>
+
+      <div style="margin-top:10px;text-align:right;">
+        <button onclick="closeImportModal()">Close</button>
+      </div>
     </div>
   </div>
 
   <!-- Controls Modal -->
   <div id="controlsModal" class="modal">
     <div class="modal-content">
-      <h2>Controls Reference</h2>
-
-      <p><strong>Touch Controls:</strong></p>
+      <h3>Controls</h3>
+      <div class="section-title">Touch</div>
       <ul>
-        <li>Single tap → Pause / Resume + show speed dial</li>
-        <li>Double‑tap left → Rewind 50 words</li>
-        <li>Double‑tap right → Skip 50 words</li>
+        <li>Tap → Pause / Resume + show speed dial</li>
+        <li>Double‑tap left → Rewind 50</li>
+        <li>Double‑tap right → Skip 50</li>
         <li>Swipe up/down from bottom → Adjust speed</li>
-        <li><strong>Tap top‑left corner → Exit Fullscreen</strong></li>
+        <li>Tap top‑left corner → Exit fullscreen</li>
       </ul>
-
-      <p><strong>Keyboard Controls:</strong></p>
+      <div class="section-title">Keyboard</div>
       <ul>
         <li>Space → Pause / Resume</li>
-        <li>Left Arrow → Rewind 50 words</li>
-        <li>Right Arrow → Skip 50 words</li>
+        <li>Left / Right arrows → Rewind / Skip 50</li>
+        <li>Esc → Exit fullscreen</li>
         <li>H → Toggle UI</li>
-        <li>ESC → Exit Fullscreen</li>
-        <li>Scroll wheel → Adjust speed</li>
+        <li>Mouse wheel → Adjust speed</li>
       </ul>
-
-      <button onclick="closeControls()">Close</button>
+      <div style="text-align:right;">
+        <button onclick="closeControls()">Close</button>
+      </div>
     </div>
   </div>
 
-  <!-- Action indicator -->
-  <div id="actionIndicator"></div>
-
-  <!-- Hidden importer + auto-resume controls -->
-  <div style="display:none;">
-    <input id="importUrl" />
-    <span id="importStatus"></span>
-    <input type="checkbox" id="autoStartImport" />
-    <input type="checkbox" id="autoResumeDraft" />
-  </div>
-
-  <!-- SCRIPT START -->
   <script>
-    /* -------------------------
-       Core State
-       ------------------------- */
+    /* ------------------------- Core State ------------------------- */
+    let words = [];
+    let chunks = [];
+    let index = 0;
 
-    let words = [];          // raw words (single-word mode)
-    let chunks = [];         // phrase chunks (phrase modes)
-    let index = 0;           // current position (word or chunk index)
-    let interval = null;
-    let delay = 60000 / 300; // default 300 WPM
-    let paused = false;
-    const SKIP_AMOUNT = 50;  // skip/rewind amount (words or chunks)
-    let modalOpen = false;
-    let currentLibraryIndex = null;
-    let speedOverlayTimeout = null;
-
-    // Reading mode: "single", "conservative", "balanced"
     let phraseMode = "single";
+    let orpOffset = 2;
 
-    /* -------------------------
-       DOM References
-       ------------------------- */
+    let reading = false;
+    let paused = false;
+
+    let lastFrameTime = 0;
+    let accumulatedTime = 0;
+    let baseDelay = 60000 / 300; // ms per word/chunk at 300 WPM
+
+    const SKIP_AMOUNT = 50;
+    let modalOpen = false;
+    let speedOverlayTimeout = null;
 
     const speedControl = document.getElementById('speedControl');
     const speedValue = document.getElementById('speedValue');
     const speedControl2 = document.getElementById('speedControl2');
     const speedValue2 = document.getElementById('speedValue2');
-
+    const fontControl = document.getElementById('fontControl');
+    const fontValue = document.getElementById('fontValue');
+    const orpOffsetControl = document.getElementById('orpOffsetControl');
+    const orpOffsetValue = document.getElementById('orpOffsetValue');
     const orpContainer = document.getElementById('orpContainer');
     const orpWord = document.getElementById('orpWord');
-
     const ui = document.getElementById('ui');
     const fileInput = document.getElementById('fileInput');
     const inputText = document.getElementById('inputText');
     const actionIndicator = document.getElementById('actionIndicator');
     const saveProgressBtn = document.getElementById('saveProgressBtn');
+    const saveToLibraryBtn = document.getElementById('saveToLibraryBtn');
     const exitHotspot = document.getElementById('exitFullscreenHotspot');
     const exitMenuBtn = document.getElementById('exitMenuBtn');
-
     const importUrl = document.getElementById('importUrl');
     const importStatus = document.getElementById('importStatus');
     const autoStartImport = document.getElementById('autoStartImport');
-    const autoResumeDraft = document.getElementById('autoResumeDraft');
-
-    /* -------------------------
-       Reading Mode Selector
-       ------------------------- */
+    const libraryImportInput = document.getElementById('libraryImportInput');
+    const skipRewindRow = document.getElementById('skipRewindRow');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const resumeBtn = document.getElementById('resumeBtn');
+    const stopBtn = document.getElementById('stopBtn');
 
     const modeRadios = document.querySelectorAll('input[name="mode"]');
 
+    /* ------------------------- Mode & Controls ------------------------- */
     modeRadios.forEach(radio => {
       radio.addEventListener('change', () => {
-        phraseMode = radio.value; 
-        // "single", "conservative", or "balanced"
+        phraseMode = radio.value;
       });
     });
 
-    /* -------------------------
-       Speed Controls (UI Sync)
-       ------------------------- */
+    fontControl.addEventListener("input", () => {
+      const size = parseInt(fontControl.value, 10);
+      fontValue.textContent = size;
+      orpWord.style.fontSize = size + "px";
+      scheduleAlignAndResize();
+    });
+
+    orpOffsetControl.addEventListener("input", () => {
+      orpOffset = parseInt(orpOffsetControl.value, 10);
+      orpOffsetValue.textContent = orpOffset;
+    });
 
     function syncSpeedControls(wpm) {
       speedControl.value = wpm;
       speedValue.textContent = wpm;
-
       speedControl2.value = wpm;
       speedValue2.textContent = wpm;
-
-      delay = 60000 / wpm;
-
-      if (interval) {
-        clearInterval(interval);
-        interval = setInterval(() => {
-          if (phraseMode === "single") showWord();
-          else showChunk();
-        }, delay);
-      }
+      baseDelay = 60000 / wpm;
     }
 
     function setSpeedWPM(wpm) {
@@ -382,45 +444,18 @@
     speedControl.addEventListener("input", () => {
       setSpeedWPM(parseInt(speedControl.value, 10));
     });
-
     speedControl2.addEventListener("input", () => {
       setSpeedWPM(parseInt(speedControl2.value, 10));
     });
-    /* ----------------------------------------------------
-       PART 3 — PHRASE CHUNKING ENGINE
-       ---------------------------------------------------- */
 
-    /*  
-      OVERVIEW:
-      - tokenizeText(text) → array of words
-      - buildChunks(words, mode) → array of phrase chunks
-      - conservativeChunk(words) → short, safe chunks
-      - balancedChunk(words) → longer, semantic chunks
-      - getCentralWord(chunk) → returns the central word for ORP
-    */
-
-    /* -------------------------
-       Tokenizer
-       ------------------------- */
-
+    /* ------------------------- Tokenizer & Chunking ------------------------- */
     function tokenizeText(text) {
-      return text
-        .replace(/\s+/g, " ")
-        .trim()
-        .split(" ");
+      return text.replace(/\s+/g, " ").trim().split(" ");
     }
-
-    /* -------------------------
-       Utility: Is boundary punctuation?
-       ------------------------- */
 
     function isBoundary(word) {
-      return /[.!?;:—–-]$/.test(word);
+      return /[.!?;—–-]$/.test(word);
     }
-
-    /* -------------------------
-       Utility: Is preposition?
-       ------------------------- */
 
     const PREP = new Set([
       "in","on","at","to","for","from","with","about","against","between",
@@ -429,136 +464,112 @@
       "of","off","up","down","by"
     ]);
 
-    /* -------------------------
-       Utility: Is conjunction?
-       ------------------------- */
-
     const CONJ = new Set([
       "and","but","or","so","yet","nor","for","although","though","because",
       "while","whereas","unless","until","since","once"
     ]);
 
-    /* -------------------------
-       Conservative Chunking
-       Short, safe 2–4 word chunks
-       ------------------------- */
-
-    function conservativeChunk(words) {
-      const chunks = [];
+    function conservativeChunk(wordsArr) {
+      const out = [];
       let current = [];
-
-      for (let i = 0; i < words.length; i++) {
-        const w = words[i];
+      for (let i = 0; i < wordsArr.length; i++) {
+        const w = wordsArr[i];
         current.push(w);
-
-        // Stop if punctuation ends the phrase
         if (isBoundary(w)) {
-          chunks.push(current.join(" "));
+          out.push(current.join(" "));
           current = [];
           continue;
         }
-
-        // Conservative: stop at 2–4 words
         if (current.length >= 3) {
-          chunks.push(current.join(" "));
+          out.push(current.join(" "));
           current = [];
         }
       }
-
-      if (current.length > 0) chunks.push(current.join(" "));
-      return chunks;
+      if (current.length > 0) out.push(current.join(" "));
+      return out;
     }
 
-    /* -------------------------
-       Balanced Chunking
-       Longer, semantic 4–7 word chunks
-       ------------------------- */
-
-    function balancedChunk(words) {
-      const chunks = [];
+    function balancedChunk(wordsArr) {
+      const out = [];
       let current = [];
-
-      for (let i = 0; i < words.length; i++) {
-        const w = words[i];
+      for (let i = 0; i < wordsArr.length; i++) {
+        const w = wordsArr[i];
         const lw = w.toLowerCase();
-
         current.push(w);
-
-        // Hard boundary: punctuation
         if (isBoundary(w)) {
-          chunks.push(current.join(" "));
+          out.push(current.join(" "));
           current = [];
           continue;
         }
-
-        // If phrase starts with a preposition, allow it to grow
         if (current.length <= 6) {
           if (PREP.has(lw) || CONJ.has(lw)) {
             continue;
           }
         }
-
-        // Balanced: stop at 4–7 words
         if (current.length >= 5) {
-          chunks.push(current.join(" "));
+          out.push(current.join(" "));
           current = [];
         }
       }
-
-      if (current.length > 0) chunks.push(current.join(" "));
-      return chunks;
+      if (current.length > 0) out.push(current.join(" "));
+      return out;
     }
 
-    /* -------------------------
-       Build Chunks Based on Mode
-       ------------------------- */
+    function semanticChunk(wordsArr) {
+      const out = [];
+      let current = [];
+      for (let i = 0; i < wordsArr.length; i++) {
+        const w = wordsArr[i];
+        const lw = w.toLowerCase();
+        current.push(w);
 
-    function buildChunks(words, mode) {
-      if (mode === "conservative") return conservativeChunk(words);
-      if (mode === "balanced") return balancedChunk(words);
-      return words; // fallback
+        if (isBoundary(w)) {
+          out.push(current.join(" "));
+          current = [];
+          continue;
+        }
+
+        if (current.length >= 7) {
+          out.push(current.join(" "));
+          current = [];
+          continue;
+        }
+
+        if (CONJ.has(lw) || PREP.has(lw)) {
+          continue;
+        }
+
+        if (current.length >= 4) {
+          out.push(current.join(" "));
+          current = [];
+        }
+      }
+      if (current.length > 0) out.push(current.join(" "));
+      return out;
     }
 
-    /* -------------------------
-       Central Word for ORP
-       ------------------------- */
-
-    function getCentralWord(chunk) {
-      const parts = chunk.split(" ");
-      const mid = Math.floor(parts.length / 2);
-      return parts[mid];
+    function buildChunks(wordsArr, mode) {
+      if (mode === "conservative") return conservativeChunk(wordsArr);
+      if (mode === "balanced") return balancedChunk(wordsArr);
+      if (mode === "semantic") return semanticChunk(wordsArr);
+      return wordsArr;
     }
-    /* ----------------------------------------------------
-       PART 4 — ORP ENGINE + FIXED-COLUMN ALIGNMENT
-       ---------------------------------------------------- */
 
-    /* -------------------------
-       ORP Index for a Word
-       ------------------------- */
-
+    /* ------------------------- ORP & Rendering ------------------------- */
     function getORPIndex(word) {
       const clean = word.replace(/^[^\w]+|[^\w]+$/g, "");
       const len = clean.length;
-
-      if (len <= 2) return 0;
-      if (len <= 5) return 1;
-      if (len <= 9) return 2;
-      return 3;
+      if (len === 0) return 0;
+      const base = Math.min(orpOffset, len - 1);
+      return base;
     }
-
-    /* -------------------------
-       Highlight ORP in a Word
-       ------------------------- */
 
     function highlightORP(word) {
       const leading = word.match(/^[^\w]+/)?.[0] || "";
       const trailing = word.match(/[^\w]+$/)?.[0] || "";
       const core = word.replace(/^[^\w]+|[^\w]+$/g, "");
-
       if (!core) return word;
-
       const pivot = getORPIndex(core);
-
       return (
         leading +
         core.slice(0, pivot) +
@@ -570,260 +581,227 @@
       );
     }
 
-    /* -------------------------
-       Highlight ORP in a Chunk
-       (uses central word)
-       ------------------------- */
-
     function highlightChunkORP(chunk) {
       const parts = chunk.split(" ");
       const mid = Math.floor(parts.length / 2);
       const central = parts[mid];
-
-      const highlighted = highlightORP(central);
-
-      // Replace only the central word
-      parts[mid] = highlighted;
-
+      parts[mid] = highlightORP(central);
       return parts.join(" ");
     }
 
-    /* -------------------------
-       FIXED-COLUMN ORP ALIGNMENT
-       Works for both words and chunks
-       ------------------------- */
+    let alignScheduled = false;
+    let lastAlignTime = 0;
 
     function alignToORP(htmlContent) {
       orpWord.innerHTML = htmlContent;
-
-      // Reset padding before measuring
       orpWord.style.paddingLeft = "0px";
-
-      // Force layout update
-      void orpWord.offsetWidth;
-
       const containerWidth = orpContainer.clientWidth;
       const containerCenter = containerWidth / 2;
-
-      // Find pivot letter position
       const pivotEl = orpWord.querySelector(".highlight");
       if (!pivotEl) return;
-
       const pivotRect = pivotEl.getBoundingClientRect();
       const wordRect = orpWord.getBoundingClientRect();
-
       const pivotX = pivotRect.left - wordRect.left;
       const pivotCenter = pivotX + pivotRect.width / 2;
-
       const neededPadding = containerCenter - pivotCenter;
-
       orpWord.style.paddingLeft = neededPadding + "px";
     }
 
-    /* -------------------------
-       Auto-resize for ORP container
-       (handles long chunks)
-       ------------------------- */
-
     function adjustFontSize() {
       let size = parseFloat(window.getComputedStyle(orpWord).fontSize);
-
-      // Shrink until it fits inside the 60% column
-      while (orpWord.scrollWidth > orpContainer.clientWidth && size > 10) {
+      const containerWidth = orpContainer.clientWidth;
+      const maxChecks = 10;
+      let checks = 0;
+      while (orpWord.scrollWidth > containerWidth && size > 10 && checks < maxChecks) {
         size -= 2;
         orpWord.style.fontSize = size + "px";
+        checks++;
       }
     }
 
-    /* -------------------------
-       Render a Single Word
-       ------------------------- */
+    function scheduleAlignAndResize() {
+      const now = performance.now();
+      if (now - lastAlignTime < 150) return;
+      lastAlignTime = now;
+      if (alignScheduled) return;
+      alignScheduled = true;
+      requestAnimationFrame(() => {
+        alignScheduled = false;
+        alignToORP(orpWord.innerHTML);
+        adjustFontSize();
+      });
+    }
 
     function renderWord(word) {
       const html = highlightORP(word);
-      alignToORP(html);
-      adjustFontSize();
+      orpWord.innerHTML = html;
+      scheduleAlignAndResize();
     }
-
-    /* -------------------------
-       Render a Phrase Chunk
-       ------------------------- */
 
     function renderChunk(chunk) {
       const html = highlightChunkORP(chunk);
-      alignToORP(html);
-      adjustFontSize();
+      orpWord.innerHTML = html;
+      scheduleAlignAndResize();
     }
-    /* ----------------------------------------------------
-       PART 5 — READING ENGINE (WORD + CHUNK MODES)
-       ---------------------------------------------------- */
 
-    /* -------------------------
-       Start Reading
-       ------------------------- */
+    /* ------------------------- Reading Engine (rAF, smooth) ------------------------- */
+    let currentDelay = baseDelay;
+
+    function computeDelayForToken(token) {
+      let mult = 1;
+      const lastChar = token.trim().slice(-1);
+      if (/[.!?]/.test(lastChar)) mult = 3;
+      else if (/[,;:]/.test(lastChar)) mult = 2;
+      return baseDelay * mult;
+    }
 
     function startReading() {
       const text = inputText.value.trim();
       if (!text) return;
-
-      // Tokenize raw words
       words = tokenizeText(text);
+      chunks = buildChunks(words, phraseMode);
+      const maxLen = (phraseMode === "single" ? words.length : chunks.length);
+      if (index >= maxLen) index = 0;
 
-      // Build chunks if needed
-      if (phraseMode === "single") {
-        chunks = words; // not used, but keeps structure consistent
-      } else {
-        chunks = buildChunks(words, phraseMode);
-      }
-
-      // Reset index if needed
-      if (index >= (phraseMode === "single" ? words.length : chunks.length)) {
-        index = 0;
-      }
-
+      reading = true;
       paused = false;
-      clearInterval(interval);
-      delay = 60000 / parseInt(speedControl.value, 10);
+      accumulatedTime = 0;
+      lastFrameTime = performance.now();
 
       document.body.classList.add("reading");
-
       ui.style.opacity = "0";
       setTimeout(() => (ui.style.display = "none"), 500);
-
       orpContainer.style.display = "block";
 
-      // Start appropriate loop
-      interval = setInterval(() => {
-        if (phraseMode === "single") showWord();
-        else showChunk();
-      }, delay);
+      // controls visibility
+      pauseBtn.style.display = "inline-block";
+      resumeBtn.style.display = "none";
+      stopBtn.style.display = "inline-block";
+      skipRewindRow.style.display = "block";
+      saveProgressBtn.style.display = currentItemId ? "inline-block" : "none";
+      saveToLibraryBtn.style.display = "none";
+
+      const token = phraseMode === "single" ? words[index] : chunks[index];
+      currentDelay = computeDelayForToken(token);
+      renderCurrentToken();
 
       updateSaveProgressButton();
+      requestAnimationFrame(readingLoop);
     }
 
-    /* -------------------------
-       Pause / Resume / Stop
-       ------------------------- */
+    function readingLoop(timestamp) {
+      if (!reading || paused) return;
+      const delta = timestamp - lastFrameTime;
+      lastFrameTime = timestamp;
+      accumulatedTime += delta;
+
+      if (accumulatedTime >= currentDelay) {
+        accumulatedTime -= currentDelay;
+        advanceToken();
+      }
+
+      if (reading) {
+        requestAnimationFrame(readingLoop);
+      }
+    }
+
+    function advanceToken() {
+      const maxLen = (phraseMode === "single" ? words.length : chunks.length);
+      index++;
+      if (index >= maxLen) {
+        stopReading();
+        return;
+      }
+      renderCurrentToken();
+      const token = phraseMode === "single" ? words[index] : chunks[index];
+      currentDelay = computeDelayForToken(token);
+    }
+
+    function renderCurrentToken() {
+      if (phraseMode === "single") {
+        if (index < 0 || index >= words.length) return;
+        renderWord(words[index]);
+      } else {
+        if (index < 0 || index >= chunks.length) return;
+        renderChunk(chunks[index]);
+      }
+    }
 
     function pauseReading() {
-      clearInterval(interval);
-      interval = null;
+      if (!reading || paused) return;
       paused = true;
+      saveProgressIfItem();
+
+      // show pause controls
+      resumeBtn.style.display = "inline-block";
+      pauseBtn.style.display = "none";
+      stopBtn.style.display = "inline-block";
+      skipRewindRow.style.display = "block";
+      saveProgressBtn.style.display = currentItemId ? "inline-block" : "none";
+      saveToLibraryBtn.style.display = "inline-block";
     }
 
     function resumeReading() {
-      if (!interval) {
-        paused = false;
-        interval = setInterval(() => {
-          if (phraseMode === "single") showWord();
-          else showChunk();
-        }, delay);
-      }
+      if (!reading || !paused) return;
+      paused = false;
+
+      // hide pause-only controls
+      resumeBtn.style.display = "none";
+      pauseBtn.style.display = "inline-block";
+      stopBtn.style.display = "inline-block";
+      skipRewindRow.style.display = "block";
+      saveProgressBtn.style.display = "none";
+      saveToLibraryBtn.style.display = "none";
+
+      lastFrameTime = performance.now();
+      requestAnimationFrame(readingLoop);
     }
 
     function stopReading() {
-      clearInterval(interval);
-      interval = null;
-      index = 0;
+      reading = false;
       paused = false;
-
+      index = 0;
       orpWord.innerHTML = "";
       orpContainer.style.display = "none";
-
       document.body.classList.remove("reading");
-
       ui.style.display = "flex";
       setTimeout(() => (ui.style.opacity = "1"), 10);
+      exitHotspot.style.pointerEvents = "none";
+      saveProgressIfItem();
+
+      // reset controls
+      pauseBtn.style.display = "none";
+      resumeBtn.style.display = "none";
+      stopBtn.style.display = "none";
+      skipRewindRow.style.display = "none";
+      saveProgressBtn.style.display = "none";
+      saveToLibraryBtn.style.display = "inline-block";
     }
-
-    /* -------------------------
-       Show Word (Single Mode)
-       ------------------------- */
-
-    function showWord() {
-      if (index >= words.length) {
-        stopReading();
-        return;
-      }
-
-      const word = words[index++];
-      renderWord(word);
-
-      // Punctuation delay
-      const trimmed = word.trim();
-      let mult = 1;
-      if (/[.!?]$/.test(trimmed)) mult = 3;
-      else if (/[,;:]$/.test(trimmed)) mult = 2;
-
-      clearInterval(interval);
-      interval = setInterval(showWord, delay * mult);
-    }
-
-    /* -------------------------
-       Show Chunk (Phrase Modes)
-       ------------------------- */
-
-    function showChunk() {
-      if (index >= chunks.length) {
-        stopReading();
-        return;
-      }
-
-      const chunk = chunks[index++];
-      renderChunk(chunk);
-
-      // Punctuation delay based on last word in chunk
-      const lastWord = chunk.split(" ").slice(-1)[0];
-      let mult = 1;
-      if (/[.!?]$/.test(lastWord)) mult = 3;
-      else if (/[,;:]$/.test(lastWord)) mult = 2;
-
-      clearInterval(interval);
-      interval = setInterval(showChunk, delay * mult);
-    }
-
-    /* -------------------------
-       Skip / Rewind
-       (Words in single mode, chunks in phrase mode)
-       ------------------------- */
 
     function rewindWords() {
-      if (phraseMode === "single") {
-        index = Math.max(0, index - SKIP_AMOUNT);
-        showIndicator("⏪ Rewind 50 words");
-      } else {
-        index = Math.max(0, index - SKIP_AMOUNT);
-        showIndicator("⏪ Rewind 50 chunks");
-      }
+      const maxLen = (phraseMode === "single" ? words.length : chunks.length);
+      index = Math.max(0, index - SKIP_AMOUNT);
+      if (index >= maxLen) index = maxLen - 1;
+      renderCurrentToken();
+      showIndicator("⏪ Rewind 50");
     }
 
     function skipWords() {
-      if (phraseMode === "single") {
-        index = Math.min(words.length - 1, index + SKIP_AMOUNT);
-        showIndicator("⏩ Skip 50 words");
-      } else {
-        index = Math.min(chunks.length - 1, index + SKIP_AMOUNT);
-        showIndicator("⏩ Skip 50 chunks");
-      }
+      const maxLen = (phraseMode === "single" ? words.length : chunks.length);
+      index = Math.min(maxLen - 1, index + SKIP_AMOUNT);
+      renderCurrentToken();
+      showIndicator("⏩ Skip 50");
     }
-    /* ----------------------------------------------------
-       PART 6 — GESTURES • FULLSCREEN • LIBRARY • IMPORTER
-       ---------------------------------------------------- */
 
-    /* -------------------------
-       Speed Overlay
-       ------------------------- */
-
+    /* ------------------------- Gestures & Speed Overlay ------------------------- */
     function showSpeedOverlay() {
       const overlay = document.getElementById("speedOverlay");
       overlay.classList.add("visible");
-
       if (document.fullscreenElement || document.webkitFullscreenElement) {
         exitMenuBtn.style.display = "inline-block";
       } else {
         exitMenuBtn.style.display = "none";
       }
-
       clearTimeout(speedOverlayTimeout);
       speedOverlayTimeout = setTimeout(() => {
         overlay.classList.remove("visible");
@@ -832,40 +810,31 @@
 
     exitMenuBtn.addEventListener("click", () => {
       stopReading();
-
       if (document.fullscreenElement || document.webkitFullscreenElement) {
         if (document.exitFullscreen) document.exitFullscreen();
         else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
       }
-
       document.getElementById("speedOverlay").classList.remove("visible");
     });
 
-    /* -------------------------
-       Gesture Controls
-       ------------------------- */
-
-    document.body.addEventListener("click", () => {
+    document.body.addEventListener("click", (e) => {
       if (modalOpen) return;
       if (!document.body.classList.contains("reading")) return;
-
       showSpeedOverlay();
-      paused ? resumeReading() : pauseReading();
+      if (paused) resumeReading();
+      else pauseReading();
     });
 
     let lastTap = 0;
     document.body.addEventListener("touchend", (e) => {
       if (modalOpen) return;
-
       const now = Date.now();
       const gap = now - lastTap;
-
       if (gap < 300) {
         const x = e.changedTouches[0].clientX;
         if (x < window.innerWidth * 0.5) rewindWords();
         else skipWords();
       }
-
       lastTap = now;
     });
 
@@ -878,30 +847,23 @@
       const t = e.changedTouches[0];
       touchStartY = t.clientY;
       touchStartX = t.clientX;
-      touchFromBottom = (touchStartY > window.innerHeight * 0.8);
+      touchFromBottom = touchStartY > window.innerHeight * 0.8;
     });
 
     document.addEventListener("touchend", (e) => {
       if (modalOpen) return;
       if (!touchFromBottom) return;
-
       const t = e.changedTouches[0];
       const dy = t.clientY - touchStartY;
       const dx = t.clientX - touchStartX;
-
       if (Math.abs(dy) > 30 && Math.abs(dy) > Math.abs(dx)) {
         if (dy < 0) setSpeedWPM(parseInt(speedControl.value, 10) + 50);
         else setSpeedWPM(parseInt(speedControl.value, 10) - 50);
       }
-
       touchStartY = null;
       touchStartX = null;
       touchFromBottom = false;
     });
-
-    /* -------------------------
-       Action Indicator
-       ------------------------- */
 
     function showIndicator(message) {
       actionIndicator.textContent = message;
@@ -910,13 +872,12 @@
       void actionIndicator.offsetWidth;
       actionIndicator.style.transition = "opacity 0.25s ease-in-out";
       actionIndicator.style.opacity = "1";
-      setTimeout(() => { actionIndicator.style.opacity = "0"; }, 900);
+      setTimeout(() => {
+        actionIndicator.style.opacity = "0";
+      }, 900);
     }
 
-    /* -------------------------
-       Fullscreen
-       ------------------------- */
-
+    /* ------------------------- Fullscreen ------------------------- */
     function enterFullscreen() {
       const elem = document.documentElement;
       if (elem.requestFullscreen) elem.requestFullscreen();
@@ -928,42 +889,23 @@
     document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
 
     function handleFullscreenChange() {
-      const fs =
-        document.fullscreenElement || document.webkitFullscreenElement;
-
+      const fs = document.fullscreenElement || document.webkitFullscreenElement;
       if (!fs) {
         pauseReading();
-
         orpContainer.style.display = "none";
         document.body.classList.remove("reading");
-
         ui.style.display = "flex";
         setTimeout(() => (ui.style.opacity = "1"), 10);
-
         exitHotspot.style.pointerEvents = "none";
-
-        showIndicator("⤓ Exit Fullscreen");
+        showIndicator("Exited fullscreen");
       } else {
         exitHotspot.style.pointerEvents = "auto";
       }
     }
 
     window.addEventListener("resize", () => {
-      const fs =
-        document.fullscreenElement || document.webkitFullscreenElement;
-      if (!fs) {
-        pauseReading();
-
-        orpContainer.style.display = "none";
-        document.body.classList.remove("reading");
-
-        ui.style.display = "flex";
-        setTimeout(() => (ui.style.opacity = "1"), 10);
-
-        exitHotspot.style.pointerEvents = "none";
-
-        showIndicator("⤓ Exit Fullscreen");
-      }
+      if (!document.body.classList.contains("reading")) return;
+      scheduleAlignAndResize();
     });
 
     exitHotspot.addEventListener("click", () => {
@@ -973,19 +915,48 @@
       }
     });
 
-    /* -------------------------
-       File Load / Save
-       ------------------------- */
+    /* ------------------------- File Load / Save ------------------------- */
+    function triggerFileLoad() {
+      fileInput.accept = ".txt";
+      fileInput.click();
+    }
 
-    function triggerFileLoad() { fileInput.click(); }
+    function triggerPdfLoad() {
+      fileInput.accept = ".pdf";
+      fileInput.click();
+    }
 
     fileInput.addEventListener("change", () => {
       const file = fileInput.files[0];
       if (!file) return;
-      const r = new FileReader();
-      r.onload = (e) => { inputText.value = e.target.result; };
-      r.readAsText(file);
+      if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+        handlePdfFile(file);
+      } else {
+        const r = new FileReader();
+        r.onload = (e) => {
+          inputText.value = e.target.result;
+        };
+        r.readAsText(file);
+      }
     });
+
+    async function handlePdfFile(file) {
+      importStatus.textContent = "Extracting PDF…";
+      openImportModal();
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const text = await extractTextFromPDFBuffer(arrayBuffer);
+        if (!text.trim()) {
+          importStatus.textContent = "No text found in PDF.";
+          return;
+        }
+        populateImportedText(text, file.name);
+        importStatus.textContent = "PDF imported.";
+      } catch (err) {
+        console.error(err);
+        importStatus.textContent = "PDF import failed.";
+      }
+    }
 
     function saveTextFile() {
       const blob = new Blob([inputText.value], { type: "text/plain" });
@@ -997,60 +968,259 @@
       URL.revokeObjectURL(url);
     }
 
-    /* -------------------------
-       Library System
-       ------------------------- */
+    /* ------------------------- Library System ------------------------- */
+    const LIBRARY_KEY = "rsvp_library_v2";
 
-    function getLibrary() {
-      return JSON.parse(localStorage.getItem("rsvpLibrary") || "[]");
+    function uuid() {
+      return "xxxx-4xxx-yxxx-xxxx".replace(/[xy]/g, c => {
+        const r = Math.random() * 16 | 0;
+        const v = c === "x" ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
     }
 
-    function setLibrary(lib) {
-      localStorage.setItem("rsvpLibrary", JSON.stringify(lib));
+    function createEmptyLibrary() {
+      return {
+        folders: [
+          { id: "root", name: "Library", parentId: null }
+        ],
+        items: [],
+        settings: {
+          lastOpenedItemId: null,
+          currentFolderId: "root"
+        }
+      };
     }
 
-    function saveToLibrary() {
-      const text = inputText.value.trim();
-      if (!text) return;
-      const library = getLibrary();
-      const name = "Entry " + (library.length + 1);
-      library.push({ text, timestamp: Date.now(), name, position: 0 });
-      setLibrary(library);
-      alert("Saved to library");
+    function loadLibrary() {
+      try {
+        const raw = localStorage.getItem(LIBRARY_KEY);
+        if (!raw) return createEmptyLibrary();
+        const parsed = JSON.parse(raw);
+        if (!parsed.folders || !parsed.items) return createEmptyLibrary();
+        if (!parsed.settings) parsed.settings = { lastOpenedItemId: null, currentFolderId: "root" };
+        return parsed;
+      } catch {
+        return createEmptyLibrary();
+      }
+    }
+
+    let libraryWriteScheduled = false;
+    let libraryWriteBuffer = null;
+
+    function scheduleSaveLibrary(lib) {
+      libraryWriteBuffer = lib;
+      if (libraryWriteScheduled) return;
+      libraryWriteScheduled = true;
+      setTimeout(() => {
+        libraryWriteScheduled = false;
+        try {
+          localStorage.setItem(LIBRARY_KEY, JSON.stringify(libraryWriteBuffer));
+        } catch {}
+      }, 200);
+    }
+
+    const Library = {
+      getAll() {
+        return loadLibrary();
+      },
+      createFolder(name, parentId = "root") {
+        const lib = loadLibrary();
+        const folder = {
+          id: uuid(),
+          name: name || "New Folder",
+          parentId
+        };
+        lib.folders.push(folder);
+        scheduleSaveLibrary(lib);
+        return folder;
+      },
+      renameFolder(folderId, newName) {
+        const lib = loadLibrary();
+        const folder = lib.folders.find(f => f.id === folderId);
+        if (!folder) return;
+        folder.name = newName || folder.name;
+        scheduleSaveLibrary(lib);
+      },
+      deleteFolder(folderId) {
+        const lib = loadLibrary();
+        if (folderId === "root") return;
+        lib.items.forEach(item => {
+          if (item.folderId === folderId) item.folderId = "root";
+        });
+        lib.folders = lib.folders.filter(f => f.id !== folderId);
+        if (lib.settings.currentFolderId === folderId) {
+          lib.settings.currentFolderId = "root";
+        }
+        scheduleSaveLibrary(lib);
+      },
+      createItem({ title, content, folderId = "root" }) {
+        const lib = loadLibrary();
+        const now = Date.now();
+        const item = {
+          id: uuid(),
+          title: title || "Untitled",
+          folderId,
+          content: content || "",
+          createdAt: now,
+          updatedAt: now,
+          lastPosition: {
+            wordIndex: 0,
+            wpm: parseInt(speedControl.value, 10) || 300,
+            mode: phraseMode,
+            fontSize: parseInt(window.getComputedStyle(orpWord).fontSize, 10) || 48,
+            theme: "dark"
+          }
+        };
+        lib.items.push(item);
+        lib.settings.lastOpenedItemId = item.id;
+        scheduleSaveLibrary(lib);
+        return item;
+      },
+      updateItemContent(itemId, newContent) {
+        const lib = loadLibrary();
+        const item = lib.items.find(i => i.id === itemId);
+        if (!item) return;
+        item.content = newContent;
+        item.updatedAt = Date.now();
+        scheduleSaveLibrary(lib);
+      },
+      renameItem(itemId, newTitle) {
+        const lib = loadLibrary();
+        const item = lib.items.find(i => i.id === itemId);
+        if (!item) return;
+        item.title = newTitle || item.title;
+        item.updatedAt = Date.now();
+        scheduleSaveLibrary(lib);
+      },
+      moveItem(itemId, newFolderId) {
+        const lib = loadLibrary();
+        const item = lib.items.find(i => i.id === itemId);
+        if (!item) return;
+        item.folderId = newFolderId || "root";
+        item.updatedAt = Date.now();
+        scheduleSaveLibrary(lib);
+      },
+      deleteItem(itemId) {
+        const lib = loadLibrary();
+        lib.items = lib.items.filter(i => i.id !== itemId);
+        if (lib.settings.lastOpenedItemId === itemId) {
+          lib.settings.lastOpenedItemId = null;
+        }
+        scheduleSaveLibrary(lib);
+      },
+      getItem(itemId) {
+        const lib = loadLibrary();
+        return lib.items.find(i => i.id === itemId) || null;
+      },
+      listItemsInFolder(folderId = "root") {
+        const lib = loadLibrary();
+        return lib.items.filter(i => i.folderId === folderId);
+      },
+      listFolders(parentId = null) {
+        const lib = loadLibrary();
+        return lib.folders.filter(f => f.parentId === parentId);
+      },
+      setLastOpenedItem(itemId) {
+        const lib = loadLibrary();
+        lib.settings.lastOpenedItemId = itemId;
+        scheduleSaveLibrary(lib);
+      },
+      getLastOpenedItem() {
+        const lib = loadLibrary();
+        if (!lib.settings.lastOpenedItemId) return null;
+        return lib.items.find(i => i.id === lib.settings.lastOpenedItemId) || null;
+      },
+      updateLastPosition(itemId, { wordIndex, wpm, mode, fontSize, theme }) {
+        const lib = loadLibrary();
+        const item = lib.items.find(i => i.id === itemId);
+        if (!item) return;
+        item.lastPosition = {
+          wordIndex: wordIndex ?? item.lastPosition.wordIndex,
+          wpm: wpm ?? item.lastPosition.wpm,
+          mode: mode ?? item.lastPosition.mode,
+          fontSize: fontSize ?? item.lastPosition.fontSize,
+          theme: theme ?? item.lastPosition.theme
+        };
+        item.updatedAt = Date.now();
+        scheduleSaveLibrary(lib);
+      },
+      setCurrentFolder(folderId) {
+        const lib = loadLibrary();
+        lib.settings.currentFolderId = folderId;
+        scheduleSaveLibrary(lib);
+      },
+      getCurrentFolderId() {
+        const lib = loadLibrary();
+        return lib.settings.currentFolderId || "root";
+      }
+    };
+
+    let currentItemId = null;
+
+    function saveProgressIfItem() {
+      if (!currentItemId) return;
+      Library.updateLastPosition(currentItemId, {
+        wordIndex: index,
+        wpm: parseInt(speedControl.value, 10) || 300,
+        mode: phraseMode,
+        fontSize: parseInt(window.getComputedStyle(orpWord).fontSize, 10) || 48,
+        theme: "dark"
+      });
+    }
+
+    function loadItemIntoReader(item) {
+      const pos = item.lastPosition || {};
+      inputText.value = item.content || "";
+      phraseMode = pos.mode || "single";
+      modeRadios.forEach(r => {
+        r.checked = (r.value === phraseMode);
+      });
+      setSpeedWPM(pos.wpm || 300);
+      const size = pos.fontSize || 48;
+      fontControl.value = size;
+      fontValue.textContent = size;
+      orpWord.style.fontSize = size + "px";
+      index = pos.wordIndex || 0;
+      currentItemId = item.id;
+      updateSaveProgressButton();
+    }
+
+    function saveCurrentAsNewItem() {
+      const content = inputText.value || "";
+      if (!content.trim()) return;
+      const title = prompt("Title for this item?", "New Item") || "New Item";
+      const folderId = Library.getCurrentFolderId();
+      const item = Library.createItem({ title, content, folderId });
+      currentItemId = item.id;
+      renderLibraryUI();
+      showIndicator("Saved to library");
+      updateSaveProgressButton();
+    }
+
+    function saveCurrentItemContent() {
+      if (!currentItemId) return;
+      const content = inputText.value || "";
+      Library.updateItemContent(currentItemId, content);
+    }
+
+    function saveProgressToCurrentItem() {
+      if (!currentItemId) {
+        alert("No library item loaded.");
+        return;
+      }
+      saveProgressIfItem();
+      showIndicator("Progress saved");
+    }
+
+    function updateSaveProgressButton() {
+      saveProgressBtn.style.display = currentItemId ? "inline-block" : "none";
     }
 
     function openLibrary() {
       modalOpen = true;
-      const modal = document.getElementById("libraryModal");
-      const list = document.getElementById("libraryList");
-      list.innerHTML = "";
-
-      const library = getLibrary();
-      if (library.length === 0) {
-        list.innerHTML = "<p>No saved texts yet.</p>";
-      } else {
-        library.forEach((entry, i) => {
-          const div = document.createElement("div");
-          div.style.borderBottom = "1px solid #444";
-          div.style.padding = "10px 0";
-
-          const preview = entry.text.substring(0, 120).replace(/\n/g, " ");
-          const name = entry.name || ("Entry " + (i + 1));
-          const pos = entry.position || 0;
-          const posLabel = pos > 0 ? ` (saved at word ${pos})` : "";
-
-          div.innerHTML = `
-            <strong>${name}</strong>${posLabel}<br>
-            <em>${preview}...</em><br>
-            <button onclick="loadLibraryItemStart(${i})">Start</button>
-            <button onclick="loadLibraryItemContinue(${i})">Continue</button>
-            <button onclick="deleteLibraryItem(${i})">Delete</button>
-          `;
-          list.appendChild(div);
-        });
-      }
-
-      modal.style.display = "flex";
+      document.getElementById("libraryModal").style.display = "flex";
+      renderLibraryUI();
     }
 
     function closeLibrary() {
@@ -1058,135 +1228,262 @@
       document.getElementById("libraryModal").style.display = "none";
     }
 
-    function loadLibraryItemStart(i) {
-      const library = getLibrary();
-      if (!library[i]) return;
-      inputText.value = library[i].text;
-      currentLibraryIndex = i;
-      index = 0;
-      startReading();
-      closeLibrary();
-      updateSaveProgressButton();
+    function createFolderPrompt() {
+      const name = prompt("Folder name?", "New Folder");
+      if (!name) return;
+      const parentId = Library.getCurrentFolderId();
+      Library.createFolder(name, parentId);
+      renderLibraryUI();
     }
 
-    function loadLibraryItemContinue(i) {
-      const library = getLibrary();
-      if (!library[i]) return;
-      inputText.value = library[i].text;
-      currentLibraryIndex = i;
-      index = library[i].position || 0;
-      startReading();
-      closeLibrary();
-      updateSaveProgressButton();
-    }
+    function renderLibraryUI() {
+      const lib = Library.getAll();
+      const currentFolderId = Library.getCurrentFolderId();
+      const foldersDiv = document.getElementById("libraryFolders");
+      const itemsDiv = document.getElementById("libraryItems");
+      foldersDiv.innerHTML = "";
+      itemsDiv.innerHTML = "";
 
-    function deleteLibraryItem(i) {
-      const library = getLibrary();
-      library.splice(i, 1);
-      setLibrary(library);
-      openLibrary();
-    }
+      const currentFolder = lib.folders.find(f => f.id === currentFolderId) || lib.folders[0];
 
-    function saveProgressToLibrary() {
-      if (currentLibraryIndex === null) {
-        alert("No library item loaded.");
-        return;
+      const path = [];
+      let cursor = currentFolder;
+      while (cursor) {
+        path.unshift(cursor);
+        cursor = lib.folders.find(f => f.id === cursor.parentId) || null;
       }
-      const library = getLibrary();
-      library[currentLibraryIndex].position = index;
-      setLibrary(library);
-      showIndicator("Progress saved");
+
+      const pathDiv = document.createElement("div");
+      pathDiv.style.marginBottom = "6px";
+      pathDiv.innerHTML = path.map((f, idx) => {
+        const clickable = `<span style="cursor:pointer;" onclick="goToFolder('${f.id}')">${f.name}</span>`;
+        return idx === path.length - 1 ? `<strong>${f.name}</strong>` : clickable;
+      }).join(" / ");
+      foldersDiv.appendChild(pathDiv);
+
+      const childFolders = lib.folders.filter(f => f.parentId === currentFolderId);
+      childFolders.forEach(folder => {
+        const row = document.createElement("div");
+        row.className = "folder-row";
+        const left = document.createElement("span");
+        left.textContent = "📁 " + folder.name;
+        left.onclick = () => goToFolder(folder.id);
+        const right = document.createElement("div");
+        const renameBtn = document.createElement("button");
+        renameBtn.textContent = "✎";
+        renameBtn.className = "tiny-btn";
+        renameBtn.onclick = (e) => {
+          e.stopPropagation();
+          const newName = prompt("Rename folder", folder.name);
+          if (newName) {
+            Library.renameFolder(folder.id, newName);
+            renderLibraryUI();
+          }
+        };
+        const delBtn = document.createElement("button");
+        delBtn.textContent = "🗑";
+        delBtn.className = "tiny-btn";
+        delBtn.onclick = (e) => {
+          e.stopPropagation();
+          if (confirm("Delete folder? Items will move to root.")) {
+            Library.deleteFolder(folder.id);
+            renderLibraryUI();
+          }
+        };
+        right.appendChild(renameBtn);
+        right.appendChild(delBtn);
+        row.appendChild(left);
+        row.appendChild(right);
+        foldersDiv.appendChild(row);
+      });
+
+      const items = Library.listItemsInFolder(currentFolderId)
+        .sort((a, b) => b.updatedAt - a.updatedAt);
+
+      if (items.length === 0) {
+        itemsDiv.innerHTML = "<p>No items in this folder.</p>";
+      } else {
+        items.forEach(item => {
+          const row = document.createElement("div");
+          row.className = "item-row";
+
+          const main = document.createElement("div");
+          main.className = "item-main";
+          const title = document.createElement("div");
+          title.textContent = item.title;
+          const meta = document.createElement("div");
+          meta.className = "item-meta";
+          const pos = item.lastPosition?.wordIndex || 0;
+          meta.textContent = `Saved at word ${pos}`;
+          main.appendChild(title);
+          main.appendChild(meta);
+
+          main.onclick = () => {
+            currentItemId = item.id;
+            Library.setLastOpenedItem(item.id);
+            loadItemIntoReader(item);
+            closeLibrary();
+          };
+
+          const right = document.createElement("div");
+          const renameBtn = document.createElement("button");
+          renameBtn.textContent = "✎";
+          renameBtn.className = "tiny-btn";
+          renameBtn.onclick = (e) => {
+            e.stopPropagation();
+            const newTitle = prompt("Rename item", item.title);
+            if (newTitle) {
+              Library.renameItem(item.id, newTitle);
+              renderLibraryUI();
+            }
+          };
+
+          const moveBtn = document.createElement("button");
+          moveBtn.textContent = "⇄";
+          moveBtn.className = "tiny-btn";
+          moveBtn.onclick = (e) => {
+            e.stopPropagation();
+            moveItemPrompt(item.id);
+          };
+
+          const delBtn = document.createElement("button");
+          delBtn.textContent = "🗑";
+          delBtn.className = "tiny-btn";
+          delBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (confirm("Delete this item?")) {
+              Library.deleteItem(item.id);
+              if (currentItemId === item.id) currentItemId = null;
+              renderLibraryUI();
+            }
+          };
+
+          right.appendChild(renameBtn);
+          right.appendChild(moveBtn);
+          right.appendChild(delBtn);
+
+          row.appendChild(main);
+          row.appendChild(right);
+          itemsDiv.appendChild(row);
+        });
+      }
     }
 
-    function updateSaveProgressButton() {
-      saveProgressBtn.style.display =
-        currentLibraryIndex !== null ? "inline-block" : "none";
+    function goToFolder(folderId) {
+      Library.setCurrentFolder(folderId);
+      renderLibraryUI();
     }
 
-    /* -------------------------
-       URL Importer + PDF Extractor
-       ------------------------- */
+    function moveItemPrompt(itemId) {
+      const lib = Library.getAll();
+      const names = lib.folders.map(f => `${f.id}: ${f.name}`).join("\n");
+      const target = prompt("Move to folder (enter folder id):\n" + names, "root");
+      if (!target) return;
+      Library.moveItem(itemId, target);
+      renderLibraryUI();
+    }
+
+    /* ------------------------- Export / Import Library ------------------------- */
+    function exportLibrary() {
+      const lib = loadLibrary();
+      const json = JSON.stringify(lib, null, 2);
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "rsvp_library_export.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function triggerLibraryImport() {
+      libraryImportInput.value = "";
+      libraryImportInput.click();
+    }
+
+    libraryImportInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (file) importLibrary(file);
+    });
+
+    function importLibrary(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const imported = JSON.parse(e.target.result);
+          if (!imported.items || !imported.folders) {
+            alert("Invalid library file.");
+            return;
+          }
+          localStorage.setItem(LIBRARY_KEY, JSON.stringify(imported));
+          alert("Library imported. Reloading…");
+          location.reload();
+        } catch (err) {
+          console.error(err);
+          alert("Failed to import library.");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    /* ------------------------- Import Modal & URL / PDF ------------------------- */
+    function openImportModal() {
+      modalOpen = true;
+      document.getElementById("importModal").style.display = "flex";
+    }
+
+    function closeImportModal() {
+      modalOpen = false;
+      document.getElementById("importModal").style.display = "none";
+      importStatus.textContent = "";
+    }
 
     async function importFromUrl() {
       const url = importUrl.value.trim();
       if (!url) {
-        importStatus.textContent = "Enter a URL";
+        importStatus.textContent = "Enter a URL.";
         return;
       }
-
       importStatus.textContent = "Importing…";
-
       try {
         const resp = await fetch(url, { method: "GET" });
         const contentType = resp.headers.get("content-type") || "";
-
-        if (
-          contentType.includes("application/pdf") ||
-          url.toLowerCase().endsWith(".pdf")
-        ) {
+        if (contentType.includes("application/pdf") || url.toLowerCase().endsWith(".pdf")) {
           importStatus.textContent = "PDF detected — extracting text…";
           const arrayBuffer = await resp.arrayBuffer();
           const text = await extractTextFromPDFBuffer(arrayBuffer);
-
           if (!text.trim()) {
-            importStatus.textContent = "No text found in PDF";
+            importStatus.textContent = "No text found in PDF.";
             return;
           }
-
           populateImportedText(text, url);
-          importStatus.textContent = "Imported PDF";
+          importStatus.textContent = "Imported PDF.";
           return;
         }
-
         const html = await resp.text();
         const doc = new DOMParser().parseFromString(html, "text/html");
-
         let article = null;
         if (typeof Readability !== "undefined") {
           try {
             article = new Readability(doc).parse();
           } catch {}
         }
-
         let extracted = "";
         if (article && article.textContent) {
-          extracted =
-            (article.title ? article.title + "\n\n" : "") + article.textContent;
+          extracted = (article.title ? article.title + "\n\n" : "") + article.textContent;
         } else {
-          const articleEl =
-            doc.querySelector("article") ||
-            doc.querySelector("main") ||
-            doc.body;
-          extracted =
-            (doc.title ? doc.title + "\n\n" : "") +
-            (articleEl ? articleEl.innerText : doc.body.innerText);
+          const articleEl = doc.querySelector("article") || doc.querySelector("main") || doc.body;
+          extracted = (doc.title ? doc.title + "\n\n" : "") + (articleEl ? articleEl.innerText : doc.body.innerText);
         }
-
         if (!extracted.trim()) {
           importStatus.textContent = "Could not extract main content.";
           return;
         }
-
         populateImportedText(extracted, url);
-        importStatus.textContent = "Imported article";
+        importStatus.textContent = "Imported article.";
       } catch (err) {
         console.error(err);
         importStatus.textContent = "Fetch failed (CORS or network).";
-      }
-    }
-
-    function populateImportedText(text, sourceUrl) {
-      const cleaned = text
-        .replace(/\r\n/g, "\n")
-        .replace(/\n{3,}/g, "\n\n")
-        .trim();
-
-      inputText.value = cleaned + "\n\n[Source: " + sourceUrl + "]";
-      currentLibraryIndex = null;
-      updateSaveProgressButton();
-
-      if (autoStartImport && autoStartImport.checked) {
-        setTimeout(() => startReading(), 200);
       }
     }
 
@@ -1195,14 +1492,12 @@
         const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
         const pdf = await loadingTask.promise;
         let fullText = "";
-
         for (let p = 1; p <= pdf.numPages; p++) {
           const page = await pdf.getPage(p);
           const content = await page.getTextContent();
-          const pageText = content.items.map((i) => i.str).join(" ");
+          const pageText = content.items.map(i => i.str).join(" ");
           fullText += pageText + "\n\n";
         }
-
         return fullText;
       } catch (err) {
         console.error("PDF extraction error", err);
@@ -1210,18 +1505,43 @@
       }
     }
 
-    /* -------------------------
-       Auto‑Resume Draft
-       ------------------------- */
+    function populateImportedText(text, source) {
+      const cleaned = text
+        .replace(/\r\n/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+      inputText.value = cleaned + "\n\n[Source: " + source + "]";
+      currentItemId = null;
+      updateSaveProgressButton();
+      if (autoStartImport && autoStartImport.checked) {
+        setTimeout(() => startReading(), 200);
+      }
+    }
 
+    /* ------------------------- Controls Modal ------------------------- */
+    function openControls() {
+      modalOpen = true;
+      document.getElementById("controlsModal").style.display = "flex";
+    }
+
+    function closeControls() {
+      modalOpen = false;
+      document.getElementById("controlsModal").style.display = "none";
+    }
+
+    /* ------------------------- Auto‑Resume Draft (debounced) ------------------------- */
     const LS_DRAFT_KEY = "rsvp_lastDraft";
     const LS_DRAFT_POS_KEY = "rsvp_lastDraftPosition";
-    const LS_AUTO_RESUME_KEY = "rsvp_autoResumeDraftEnabled";
 
-    function saveLastDraft() {
-      try {
-        localStorage.setItem(LS_DRAFT_KEY, inputText.value || "");
-      } catch {}
+    let draftSaveTimeout = null;
+
+    function scheduleSaveLastDraft() {
+      clearTimeout(draftSaveTimeout);
+      draftSaveTimeout = setTimeout(() => {
+        try {
+          localStorage.setItem(LS_DRAFT_KEY, inputText.value || "");
+        } catch {}
+      }, 500);
     }
 
     function saveLastDraftPosition() {
@@ -1232,60 +1552,37 @@
 
     function loadDraftOnStartup() {
       try {
-        const enabled = localStorage.getItem(LS_AUTO_RESUME_KEY);
-        const autoResumeEnabled =
-          enabled === null ? true : enabled === "true";
-        if (autoResumeDraft) autoResumeDraft.checked = autoResumeEnabled;
-
-        if (!autoResumeEnabled) return;
-
         const draft = localStorage.getItem(LS_DRAFT_KEY);
         if (!draft) return;
-
         inputText.value = draft;
-
-        const pos = parseInt(
-          localStorage.getItem(LS_DRAFT_POS_KEY) || "0",
-          10
-        );
+        const pos = parseInt(localStorage.getItem(LS_DRAFT_POS_KEY) || "0", 10);
         if (!isNaN(pos) && pos > 0) {
           index = pos;
-          setTimeout(() => startReading(), 200);
         }
       } catch {}
     }
 
-    if (autoResumeDraft) {
-      autoResumeDraft.addEventListener("change", () => {
-        try {
-          localStorage.setItem(
-            LS_AUTO_RESUME_KEY,
-            autoResumeDraft.checked ? "true" : "false"
-          );
-        } catch {}
-      });
-    }
+    inputText.addEventListener("input", scheduleSaveLastDraft);
+    inputText.addEventListener("paste", () => setTimeout(scheduleSaveLastDraft, 50));
+    inputText.addEventListener("blur", scheduleSaveLastDraft);
 
-    inputText.addEventListener("input", saveLastDraft);
-    inputText.addEventListener("paste", () =>
-      setTimeout(saveLastDraft, 50)
-    );
-
-    /* -------------------------
-       Initialization
-       ------------------------- */
-
+    /* ------------------------- Startup ------------------------- */
     window.addEventListener("load", () => {
       loadDraftOnStartup();
+      const last = Library.getLastOpenedItem();
+      if (last) {
+        loadItemIntoReader(last);
+      }
       updateSaveProgressButton();
+      orpWord.style.fontSize = fontControl.value + "px";
     });
 
     window.addEventListener("beforeunload", () => {
-      saveLastDraft();
+      scheduleSaveLastDraft();
       saveLastDraftPosition();
+      saveCurrentItemContent();
     });
-
   </script>
-
 </body>
 </html>
+

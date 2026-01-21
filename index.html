@@ -1,567 +1,837 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>RSVP Reader — Minimal Black (Patched)</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8" />
+  <title>RSVP Reader with Library</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
+    :root {
+      --bg: #0f172a;
+      --bg-soft: #111827;
+      --bg-softer: #020617;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56,189,248,0.15);
+      --accent-strong: #0ea5e9;
+      --text: #e5e7eb;
+      --text-soft: #9ca3af;
+      --border: #1f2937;
+      --danger: #f97373;
+      --radius-lg: 18px;
+      --radius-md: 12px;
+      --radius-sm: 8px;
+      --shadow-soft: 0 18px 45px rgba(15,23,42,0.85);
+      --fade-duration: 300ms;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
-      background-color: black;
-      color: white;
-      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+        "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #1e293b 0, #020617 55%);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+    }
+
+    .app-shell {
+      display: flex;
+      width: 100%;
+      max-width: 1400px;
+      height: 100vh;
+      padding: 16px;
+      gap: 16px;
+    }
+
+    /* Sidebar */
+
+    .sidebar {
+      width: 320px;
+      min-width: 260px;
+      max-width: 360px;
+      background: linear-gradient(145deg, #020617, #020617);
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(148,163,184,0.12);
+      box-shadow: var(--shadow-soft);
+      padding: 14px 14px 10px;
       display: flex;
       flex-direction: column;
+      gap: 10px;
+    }
+
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .sidebar-title {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-soft);
+    }
+
+    .sidebar-summary {
+      font-size: 11px;
+      color: var(--text-soft);
+    }
+
+    .sidebar-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .sidebar-search {
+      flex: 1;
+      background: #020617;
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(148,163,184,0.25);
+      padding: 6px 9px;
+      font-size: 12px;
+      color: var(--text);
+      outline: none;
+    }
+
+    .sidebar-search::placeholder {
+      color: #4b5563;
+    }
+
+    .btn {
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.35);
+      background: radial-gradient(circle at top left, #1f2937 0, #020617 65%);
+      color: var(--text);
+      font-size: 11px;
+      padding: 6px 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      border-color: rgba(56,189,248,0.7);
+      background: radial-gradient(circle at top left, #0f172a 0, #020617 65%);
+      color: var(--accent);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      border-color: rgba(148,163,184,0.25);
+    }
+
+    .btn-danger {
+      border-color: rgba(248,113,113,0.7);
+      color: #fecaca;
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    .library-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px 2px 4px 0;
+      margin-right: 2px;
+    }
+
+    .item-card {
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(148,163,184,0.25);
+      background: radial-gradient(circle at top left, #020617 0, #020617 65%);
+      padding: 8px 9px;
+      margin-bottom: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .item-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .item-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .item-meta {
+      font-size: 11px;
+      color: var(--text-soft);
+      white-space: nowrap;
+    }
+
+    .item-progress-bar {
+      width: 100%;
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.9);
+      overflow: hidden;
+    }
+
+    .item-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #22c55e, #a3e635);
+      width: 0%;
+    }
+
+    .item-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .item-actions .btn {
+      font-size: 10px;
+      padding: 4px 8px;
+    }
+
+    /* Main */
+
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .top-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .app-title {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-soft);
+    }
+
+    .badge {
+      font-size: 10px;
+      padding: 3px 7px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.4);
+      color: var(--text-soft);
+    }
+
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text-soft);
+      padding: 5px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.25);
+      background: radial-gradient(circle at top left, #020617 0, #020617 65%);
+    }
+
+    .control-group label {
+      font-size: 11px;
+      color: var(--text-soft);
+    }
+
+    .control-group input[type="range"] {
+      width: 110px;
+    }
+
+    .pill-row {
+      display: inline-flex;
+      gap: 4px;
+      padding: 2px;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.9);
+      border: 1px solid rgba(148,163,184,0.25);
+    }
+
+    .pill {
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: none;
+      background: transparent;
+      color: var(--text-soft);
+      cursor: pointer;
+    }
+
+    .pill.active {
+      background: rgba(56,189,248,0.15);
+      color: var(--accent);
+    }
+
+    /* Editor & Reader */
+
+    .panel {
+      flex: 1;
+      display: flex;
+      gap: 12px;
+    }
+
+    .editor-panel,
+    .reader-panel {
+      flex: 1;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(148,163,184,0.25);
+      background: radial-gradient(circle at top left, #020617 0, #020617 65%);
+      box-shadow: var(--shadow-soft);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .editor-panel {
+      display: flex;
+    }
+
+    .editor-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      font-size: 11px;
+      color: var(--text-soft);
+    }
+
+    textarea {
+      flex: 1;
+      width: 100%;
+      resize: none;
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(148,163,184,0.25);
+      background: #020617;
+      color: var(--text);
+      padding: 10px;
+      font-size: 13px;
+      line-height: 1.5;
+      outline: none;
+    }
+
+    .editor-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--text-soft);
+    }
+
+    .reader-panel {
+      display: none;
       align-items: center;
       justify-content: center;
-      height: 100vh;
-      margin: 0;
+      position: relative;
       overflow: hidden;
-      touch-action: manipulation;
     }
-    #ui {
+
+    .reader-panel.active {
+      display: flex;
+    }
+
+    .reader-inner {
+      max-width: 700px;
+      width: 100%;
+      text-align: center;
+      padding: 12px;
+    }
+
+    .orp-word {
+      font-size: 64px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      color: var(--text);
+      font-variant-ligatures: none;
+      white-space: nowrap;
+    }
+
+    .orp-word .orp {
+      color: #ef4444; /* red ORP */
+    }
+
+    .reader-sub {
+      margin-top: 10px;
+      font-size: 11px;
+      color: var(--text-soft);
+    }
+
+    /* Bottom controls (fullscreen) */
+
+    .fullscreen-controls {
+      position: absolute;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%);
       display: flex;
       flex-direction: column;
       align-items: center;
-      transition: opacity 0.5s ease;
+      gap: 6px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--fade-duration) ease;
     }
-    textarea {
-      width: 80%;
-      height: 120px;
-      margin: 10px;
-      background: #111;
-      color: white;
-      border: 1px solid #444;
-      padding: 10px;
-      font-size: 1.1em;
+
+    .fullscreen-controls.visible {
+      opacity: 1;
+      pointer-events: auto;
     }
-    button {
-      margin: 4px;
-      padding: 8px 16px;
-      background: #222;
-      color: white;
-      border: 1px solid #444;
-      cursor: pointer;
-      font-size: 0.95em;
-      border-radius: 4px;
+
+    .fullscreen-buttons {
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+      align-items: center;
     }
-    button:hover {
-      background: #333;
+
+    .fullscreen-buttons .btn {
+      font-size: 11px;
+      padding: 5px 10px;
     }
-    #orpContainer {
-      width: 60vw;
-      max-width: 60vw;
-      text-align: left;
-      position: relative;
-      margin: 0 auto;
+
+    .fullscreen-speed {
+      width: 220px;
       display: none;
-      white-space: nowrap;
-      overflow: visible;
-      user-select: none;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text-soft);
+      justify-content: center;
     }
-    #orpWord {
-      font-size: 10vw;
-      line-height: 1.2;
-      display: inline-block;
-      white-space: nowrap;
-      position: relative;
+
+    .fullscreen-speed.visible {
+      display: flex;
     }
-    .highlight {
-      color: #ff4b4b;
+
+    .fullscreen-speed input[type="range"] {
+      width: 160px;
     }
-    #exitFullscreenHotspot {
-      position: fixed;
+
+    .indicator {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      font-size: 11px;
+      color: var(--accent);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .indicator.visible {
+      opacity: 1;
+    }
+
+    /* Hidden exit hotspot */
+
+    .exit-hotspot {
+      position: absolute;
       top: 0;
       left: 0;
       width: 60px;
       height: 60px;
       opacity: 0;
-      pointer-events: none;
-      z-index: 9999999;
+      z-index: 10;
     }
-    #speedOverlay {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.7);
-      padding: 10px 16px;
-      border-radius: 10px;
-      z-index: 999999;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-      pointer-events: none;
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      font-size: 0.9em;
+
+    @media (max-width: 900px) {
+      .app-shell {
+        flex-direction: column;
+        height: auto;
+      }
+      .sidebar {
+        width: 100%;
+        max-width: none;
+        order: 2;
+        height: 260px;
+      }
+      .main {
+        order: 1;
+        height: calc(100vh - 280px);
+      }
+      .panel {
+        flex-direction: column;
+      }
     }
-    #speedOverlay.visible {
-      opacity: 1;
-      pointer-events: auto;
+
+    /* Fullscreen mode overrides */
+
+    body.fullscreen-mode {
+      background: #000000 !important;
     }
-    #exitMenuBtn {
-      padding: 4px 8px;
-      font-size: 0.8em;
-      background:#333;
-      border:1px solid #666;
-      color:white;
-      border-radius:6px;
-      display:none;
+
+    body.fullscreen-mode .app-shell {
+      padding: 0;
+      max-width: 100%;
     }
-    .modeSelector {
-      margin-top: 10px;
-      padding: 10px;
-      background: #111;
-      border: 1px solid #444;
-      width: 80%;
-      max-width: 500px;
-      border-radius: 6px;
-      font-size: 0.9em;
-    }
-    .modeSelector label {
-      display: block;
-      margin: 4px 0;
-      cursor: pointer;
-    }
-    .controls-row {
-      margin-top: 6px;
-      font-size: 0.9em;
-    }
-    .controls-row label {
-      margin-right: 10px;
-    }
-    body:not(.reading) #orpContainer {
+
+    body.fullscreen-mode .sidebar,
+    body.fullscreen-mode .top-bar,
+    body.fullscreen-mode .controls-row,
+    body.fullscreen-mode .editor-panel,
+    body.fullscreen-mode .editor-footer,
+    body.fullscreen-mode .editor-header,
+    body.fullscreen-mode #charCount {
       display: none !important;
     }
-    .modal {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.8);
-      display: none;
-      justify-content: center;
-      align-items: center;
-      z-index: 999;
+
+    body.fullscreen-mode .main {
+      padding: 0;
     }
-    .modal-content {
-      background: #111;
-      padding: 16px;
-      border: 1px solid #444;
-      width: 90%;
-      max-width: 900px;
-      max-height: 85%;
-      overflow-y: auto;
-      border-radius: 6px;
-      font-size: 0.9em;
+
+    body.fullscreen-mode .reader-panel {
+      border-radius: 0;
+      border: none;
+      box-shadow: none;
+      background: #000000;
     }
-    #actionIndicator {
-      position: fixed;
-      bottom: 30px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.7);
-      color: white;
-      padding: 8px 16px;
-      border-radius: 10px;
-      font-size: 1.1em;
-      opacity: 0;
-      transition: opacity 0.25s ease-in-out;
-      pointer-events: none;
-      z-index: 999999;
+
+    body.fullscreen-mode .reader-inner {
+      max-width: none;
     }
-    /* Library UI */
-    #libraryFolders {
-      margin-bottom: 10px;
-      border-bottom: 1px solid #333;
-      padding-bottom: 8px;
+
+    body.fullscreen-mode .orp-word {
+      font-size: 72px;
     }
-    .folder-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 4px 0;
-      border-bottom: 1px solid #222;
-    }
-    .folder-row span {
-      cursor: pointer;
-    }
-    .item-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 4px 0;
-      border-bottom: 1px solid #222;
-    }
-    .item-main {
-      flex: 1;
-      cursor: pointer;
-    }
-    .item-meta {
-      font-size: 0.8em;
-      color: #aaa;
-    }
-    .tiny-btn {
-      font-size: 0.75em;
-      padding: 2px 5px;
-      margin-left: 4px;
-      border-radius: 3px;
-    }
-    .section-title {
-      margin-top: 8px;
-      margin-bottom: 4px;
-      font-weight: bold;
+
+    body.fullscreen-mode .reader-sub {
+      color: #6b7280;
     }
   </style>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.9.179/pdf.min.js"></script>
-  <script src="https://unpkg.com/@mozilla/readability@0.4.4/Readability.js"></script>
 </head>
 <body>
-  <div id="ui">
-    <h2>RSVP Reader</h2>
-
-    <textarea id="inputText" placeholder="Paste or import text here..."></textarea>
-
-    <div class="modeSelector">
-      <div><strong>Reading Mode</strong></div>
-      <label><input type="radio" name="mode" value="single" checked> Single Word</label>
-      <label><input type="radio" name="mode" value="conservative"> Phrase Chunking — Conservative</label>
-      <label><input type="radio" name="mode" value="balanced"> Phrase Chunking — Balanced</label>
-      <label><input type="radio" name="mode" value="semantic"> Smart Chunking 2.0 (semantic-ish)</label>
-    </div>
-
-    <div class="controls-row">
-      <label>Speed:
-        <input type="range" id="speedControl" min="100" max="1000" value="300" step="50">
-        <span id="speedValue">300</span> WPM
-      </label>
-      <label>Font:
-        <input type="range" id="fontControl" min="24" max="80" value="48" step="2">
-        <span id="fontValue">48</span> px
-      </label>
-      <label>ORP offset:
-        <input type="range" id="orpOffsetControl" min="0" max="4" value="2" step="1">
-        <span id="orpOffsetValue">2</span>
-      </label>
-    </div>
-
-    <div style="margin-top:8px;">
-      <button onclick="startReading()">Start</button>
-      <button id="pauseBtn" style="display:none;" onclick="pauseReading()">Pause</button>
-      <button id="resumeBtn" style="display:none;" onclick="resumeReading()">Resume</button>
-      <button id="stopBtn" style="display:none;" onclick="stopReading()">Stop</button>
-      <button onclick="enterFullscreen()">Fullscreen</button>
-      <button id="saveProgressBtn" style="display:none;" onclick="saveProgressToCurrentItem()">Save Progress</button>
-      <button id="saveToLibraryBtn" style="display:inline-block;" onclick="saveCurrentAsNewItem()">Save to Library</button>
-    </div>
-
-    <!-- Skip/rewind row, controlled via JS -->
-    <div id="skipRewindRow" style="margin-top:6px; display:none;">
-      <button onclick="rewindWords()">⏪ Rewind 50</button>
-      <button onclick="skipWords()">⏩ Skip 50</button>
-    </div>
-
-    <div style="margin-top:8px;">
-      <button onclick="triggerFileLoad()">Load .txt</button>
-      <button onclick="saveTextFile()">Save .txt</button>
-      <button onclick="openImportModal()">Import URL / PDF</button>
-    </div>
-
-    <div style="margin-top:8px;">
-      <button onclick="openLibrary()">Library</button>
-      <button onclick="exportLibrary()">Export Library</button>
-      <button onclick="triggerLibraryImport()">Import Library</button>
-      <input type="file" id="libraryImportInput" accept=".json" style="display:none;">
-    </div>
-
-    <input type="file" id="fileInput" accept=".txt,.pdf" style="display:none;">
-  </div>
-
-  <div id="orpContainer">
-    <span id="orpWord"></span>
-  </div>
-
-  <div id="speedOverlay">
-    <span>Speed:</span>
-    <input type="range" id="speedControl2" min="100" max="1000" value="300" step="50">
-    <span id="speedValue2">300</span> WPM
-    <button id="exitMenuBtn">Exit</button>
-  </div>
-
-  <div id="exitFullscreenHotspot"></div>
-
-  <div id="actionIndicator"></div>
-
-  <!-- Library Modal -->
-  <div id="libraryModal" class="modal">
-    <div class="modal-content">
-      <h3>Library</h3>
-      <div style="margin-bottom:6px;">
-        <button onclick="createFolderPrompt()">+ Folder</button>
-        <button onclick="saveCurrentAsNewItem()">+ Item from Editor</button>
-      </div>
-      <div id="libraryFolders"></div>
-      <div id="libraryItems"></div>
-      <div style="margin-top:8px;text-align:right;">
-        <button onclick="closeLibrary()">Close</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Import Modal -->
-  <div id="importModal" class="modal">
-    <div class="modal-content">
-      <h3>Import Content</h3>
-      <div class="section-title">From URL (article)</div>
-      <input id="importUrl" style="width:100%;padding:4px;background:#111;border:1px solid #444;color:white;" placeholder="https://example.com/article">
-      <div style="margin-top:4px;">
-        <button onclick="importFromUrl()">Import Article</button>
-        <span id="importStatus" style="margin-left:8px;color:#ccc;"></span>
+  <div class="app-shell">
+    <!-- Sidebar / Library -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div>
+          <div class="sidebar-title">Library</div>
+          <div class="sidebar-summary" id="librarySummary">0 items</div>
+        </div>
+        <button class="btn btn-ghost" id="newItemBtn">+ New</button>
       </div>
 
-      <div class="section-title">From PDF</div>
-      <button onclick="triggerPdfLoad()">Select PDF</button>
-
-      <div style="margin-top:10px;">
-        <label><input type="checkbox" id="autoStartImport"> Auto‑start reading after import</label>
+      <div class="sidebar-row">
+        <input
+          type="text"
+          id="librarySearch"
+          class="sidebar-search"
+          placeholder="Search titles or text..."
+        />
+        <button class="btn btn-ghost" id="exportLibraryBtn">Export</button>
+        <button class="btn btn-ghost" id="importLibraryBtn">Import</button>
+        <input
+          type="file"
+          id="libraryImportInput"
+          accept="application/json"
+          style="display:none"
+        />
       </div>
 
-      <div style="margin-top:10px;text-align:right;">
-        <button onclick="closeImportModal()">Close</button>
-      </div>
-    </div>
-  </div>
+      <div class="library-list" id="libraryList"></div>
+    </aside>
 
-  <!-- Controls Modal -->
-  <div id="controlsModal" class="modal">
-    <div class="modal-content">
-      <h3>Controls</h3>
-      <div class="section-title">Touch</div>
-      <ul>
-        <li>Tap → Pause / Resume + show speed dial</li>
-        <li>Double‑tap left → Rewind 50</li>
-        <li>Double‑tap right → Skip 50</li>
-        <li>Swipe up/down from bottom → Adjust speed</li>
-        <li>Tap top‑left corner → Exit fullscreen</li>
-      </ul>
-      <div class="section-title">Keyboard</div>
-      <ul>
-        <li>Space → Pause / Resume</li>
-        <li>Left / Right arrows → Rewind / Skip 50</li>
-        <li>Esc → Exit fullscreen</li>
-        <li>H → Toggle UI</li>
-        <li>Mouse wheel → Adjust speed</li>
-      </ul>
-      <div style="text-align:right;">
-        <button onclick="closeControls()">Close</button>
+    <!-- Main -->
+    <main class="main">
+      <div class="top-bar">
+        <div class="top-left">
+          <div class="app-title">RSVP Reader</div>
+          <div class="badge">M2‑C · iPad‑friendly</div>
+        </div>
+        <div class="controls-row">
+          <button class="btn btn-primary" id="startBtn">Start</button>
+          <button class="btn" id="saveToLibraryBtn">Save to library</button>
+          <button class="btn btn-ghost" id="fullscreenBtn">Fullscreen</button>
+        </div>
       </div>
-    </div>
+
+      <div class="controls-row">
+        <div class="control-group">
+          <label>Speed</label>
+          <input type="range" id="speedControl" min="150" max="1200" step="50" value="400" />
+          <span id="speedValue">400</span>
+          <span>WPM</span>
+        </div>
+        <div class="control-group">
+          <label>Font</label>
+          <input type="range" id="fontControl" min="32" max="80" step="2" value="64" />
+          <span id="fontValue">64</span>
+          <span>px</span>
+        </div>
+        <div class="control-group">
+          <label>ORP</label>
+          <input type="range" id="orpOffsetControl" min="0" max="4" step="1" value="2" />
+          <span id="orpOffsetValue">2</span>
+        </div>
+        <div class="control-group">
+          <label>Mode</label>
+          <div class="pill-row" id="modePills">
+            <button class="pill active" data-mode="single">Single</button>
+            <button class="pill" data-mode="conservative">Conservative</button>
+            <button class="pill" data-mode="balanced">Balanced</button>
+            <button class="pill" data-mode="semantic">Smart</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <!-- Editor -->
+        <section class="editor-panel" id="editorPanel">
+          <div style="flex:1;display:flex;flex-direction:column;">
+            <div class="editor-header">
+              <span>Source text</span>
+              <span id="charCount">0 characters</span>
+            </div>
+            <textarea id="inputText" placeholder="Paste or type your text here..."></textarea>
+            <div class="editor-footer">
+              <span>Every saved text is added to the library with progress tracking.</span>
+              <div style="display:flex;gap:6px;">
+                <button class="btn btn-ghost" id="clearTextBtn">Clear</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Reader -->
+        <section class="reader-panel" id="readerPanel">
+          <div class="exit-hotspot" id="exitHotspot"></div>
+          <div class="reader-inner">
+            <div class="orp-word" id="orpWord"></div>
+            <div class="reader-sub" id="readerSub"></div>
+          </div>
+
+          <!-- Bottom fullscreen controls -->
+          <div class="fullscreen-controls" id="fullscreenControls">
+            <div class="fullscreen-buttons">
+              <button class="btn" id="rewindBtn">⏪ -50</button>
+              <button class="btn" id="pauseBtn">Pause</button>
+              <button class="btn" id="resumeBtn" style="display:none;">Resume</button>
+              <button class="btn" id="stopBtn">Stop</button>
+              <button class="btn" id="skipBtn">+50 ⏩</button>
+            </div>
+            <div class="fullscreen-speed" id="fullscreenSpeed">
+              <span>Speed</span>
+              <input type="range" id="speedControlFs" min="150" max="1200" step="50" value="400" />
+              <span id="speedValueFs">400</span>
+            </div>
+          </div>
+
+          <div class="indicator" id="indicator"></div>
+        </section>
+      </div>
+    </main>
   </div>
 
   <script>
-    /* ------------------------- Core State ------------------------- */
-    let words = [];
-    let chunks = [];
-    let index = 0;
+    /* ============================================================
+       RSVP ENGINE
+       ============================================================ */
 
-    let phraseMode = "single";
-    let orpOffset = 2;
+    let rsvpWords = [];
+    let rsvpChunks = [];
+    let rsvpIndex = 0;
+    let rsvpMode = "single";
+    let rsvpSpeed = 400;
+    let rsvpDelay = 60000 / rsvpSpeed;
+    let rsvpPaused = false;
+    let rsvpRunning = false;
+    let rsvpLastFrame = 0;
+    let rsvpAccum = 0;
+    let rsvpORPOffset = 2;
 
-    let reading = false;
-    let paused = false;
+    let currentLibraryItemId = null;
+    let onProgressUpdate = null;
 
-    let lastFrameTime = 0;
-    let accumulatedTime = 0;
-    let baseDelay = 60000 / 300; // ms per word/chunk at 300 WPM
+    let cleanMode = true; // fullscreen clean mode state
 
-    const SKIP_AMOUNT = 50;
-    let modalOpen = false;
-    let speedOverlayTimeout = null;
+    const orpWord = document.getElementById("orpWord");
+    const readerPanel = document.getElementById("readerPanel");
+    const editorPanel = document.getElementById("editorPanel");
+    const readerSub = document.getElementById("readerSub");
+    const indicator = document.getElementById("indicator");
 
-    const speedControl = document.getElementById('speedControl');
-    const speedValue = document.getElementById('speedValue');
-    const speedControl2 = document.getElementById('speedControl2');
-    const speedValue2 = document.getElementById('speedValue2');
-    const fontControl = document.getElementById('fontControl');
-    const fontValue = document.getElementById('fontValue');
-    const orpOffsetControl = document.getElementById('orpOffsetControl');
-    const orpOffsetValue = document.getElementById('orpOffsetValue');
-    const orpContainer = document.getElementById('orpContainer');
-    const orpWord = document.getElementById('orpWord');
-    const ui = document.getElementById('ui');
-    const fileInput = document.getElementById('fileInput');
-    const inputText = document.getElementById('inputText');
-    const actionIndicator = document.getElementById('actionIndicator');
-    const saveProgressBtn = document.getElementById('saveProgressBtn');
-    const saveToLibraryBtn = document.getElementById('saveToLibraryBtn');
-    const exitHotspot = document.getElementById('exitFullscreenHotspot');
-    const exitMenuBtn = document.getElementById('exitMenuBtn');
-    const importUrl = document.getElementById('importUrl');
-    const importStatus = document.getElementById('importStatus');
-    const autoStartImport = document.getElementById('autoStartImport');
-    const libraryImportInput = document.getElementById('libraryImportInput');
-    const skipRewindRow = document.getElementById('skipRewindRow');
-    const pauseBtn = document.getElementById('pauseBtn');
-    const resumeBtn = document.getElementById('resumeBtn');
-    const stopBtn = document.getElementById('stopBtn');
+    const startBtn = document.getElementById("startBtn");
+    const pauseBtn = document.getElementById("pauseBtn");
+    const resumeBtn = document.getElementById("resumeBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const rewindBtn = document.getElementById("rewindBtn");
+    const skipBtn = document.getElementById("skipBtn");
 
-    const modeRadios = document.querySelectorAll('input[name="mode"]');
+    const fullscreenBtn = document.getElementById("fullscreenBtn");
+    const fullscreenControls = document.getElementById("fullscreenControls");
+    const fullscreenSpeed = document.getElementById("fullscreenSpeed");
+    const speedControlFs = document.getElementById("speedControlFs");
+    const speedValueFs = document.getElementById("speedValueFs");
+    const exitHotspot = document.getElementById("exitHotspot");
 
-    /* ------------------------- Mode & Controls ------------------------- */
-    modeRadios.forEach(radio => {
-      radio.addEventListener('change', () => {
-        phraseMode = radio.value;
-      });
-    });
+    const speedControl = document.getElementById("speedControl");
+    const speedValue = document.getElementById("speedValue");
+    const fontControl = document.getElementById("fontControl");
+    const fontValue = document.getElementById("fontValue");
+    const orpOffsetControl = document.getElementById("orpOffsetControl");
+    const orpOffsetValue = document.getElementById("orpOffsetValue");
+    const modePills = document.querySelectorAll("#modePills .pill");
+
+    const inputText = document.getElementById("inputText");
+    const charCount = document.getElementById("charCount");
+
+    function setSpeed(wpm) {
+      rsvpSpeed = wpm;
+      rsvpDelay = 60000 / wpm;
+      speedValue.textContent = wpm;
+      speedControl.value = wpm;
+      speedValueFs.textContent = wpm;
+      speedControlFs.value = wpm;
+    }
+
+    speedControl.addEventListener("input", () => setSpeed(+speedControl.value));
+    speedControlFs.addEventListener("input", () => setSpeed(+speedControlFs.value));
 
     fontControl.addEventListener("input", () => {
-      const size = parseInt(fontControl.value, 10);
+      const size = +fontControl.value;
       fontValue.textContent = size;
       orpWord.style.fontSize = size + "px";
-      scheduleAlignAndResize();
     });
 
     orpOffsetControl.addEventListener("input", () => {
-      orpOffset = parseInt(orpOffsetControl.value, 10);
-      orpOffsetValue.textContent = orpOffset;
+      rsvpORPOffset = +orpOffsetControl.value;
+      orpOffsetValue.textContent = rsvpORPOffset;
     });
 
-    function syncSpeedControls(wpm) {
-      speedControl.value = wpm;
-      speedValue.textContent = wpm;
-      speedControl2.value = wpm;
-      speedValue2.textContent = wpm;
-      baseDelay = 60000 / wpm;
-    }
-
-    function setSpeedWPM(wpm) {
-      wpm = Math.max(100, Math.min(1000, Math.round(wpm / 50) * 50));
-      syncSpeedControls(wpm);
-    }
-
-    speedControl.addEventListener("input", () => {
-      setSpeedWPM(parseInt(speedControl.value, 10));
-    });
-    speedControl2.addEventListener("input", () => {
-      setSpeedWPM(parseInt(speedControl2.value, 10));
+    modePills.forEach((pill) => {
+      pill.addEventListener("click", () => {
+        modePills.forEach((p) => p.classList.remove("active"));
+        pill.classList.add("active");
+        rsvpMode = pill.dataset.mode;
+      });
     });
 
-    /* ------------------------- Tokenizer & Chunking ------------------------- */
-    function tokenizeText(text) {
+    inputText.addEventListener("input", () => {
+      charCount.textContent = inputText.value.length + " characters";
+    });
+
+    function tokenize(text) {
       return text.replace(/\s+/g, " ").trim().split(" ");
     }
 
     function isBoundary(word) {
-      return /[.!?;—–-]$/.test(word);
+      return /[.!?;:—–-]$/.test(word);
     }
 
     const PREP = new Set([
-      "in","on","at","to","for","from","with","about","against","between",
-      "into","through","during","before","after","above","below","under",
-      "over","within","without","across","behind","beyond","around","near",
-      "of","off","up","down","by"
+      "in","on","at","to","for","from","with","about","against","between","into",
+      "through","during","before","after","above","below","under","over","within",
+      "without","across","behind","beyond","around","near","of","off","up","down","by"
     ]);
-
     const CONJ = new Set([
-      "and","but","or","so","yet","nor","for","although","though","because",
-      "while","whereas","unless","until","since","once"
+      "and","but","or","so","yet","nor","for","although","though","because","while",
+      "whereas","unless","until","since","once"
     ]);
 
-    function conservativeChunk(wordsArr) {
+    function chunkConservative(arr) {
       const out = [];
-      let current = [];
-      for (let i = 0; i < wordsArr.length; i++) {
-        const w = wordsArr[i];
-        current.push(w);
-        if (isBoundary(w)) {
-          out.push(current.join(" "));
-          current = [];
-          continue;
-        }
-        if (current.length >= 3) {
-          out.push(current.join(" "));
-          current = [];
+      let cur = [];
+      for (const w of arr) {
+        cur.push(w);
+        if (isBoundary(w) || cur.length >= 3) {
+          out.push(cur.join(" "));
+          cur = [];
         }
       }
-      if (current.length > 0) out.push(current.join(" "));
+      if (cur.length) out.push(cur.join(" "));
       return out;
     }
 
-    function balancedChunk(wordsArr) {
+    function chunkBalanced(arr) {
       const out = [];
-      let current = [];
-      for (let i = 0; i < wordsArr.length; i++) {
-        const w = wordsArr[i];
+      let cur = [];
+      for (const w of arr) {
         const lw = w.toLowerCase();
-        current.push(w);
+        cur.push(w);
         if (isBoundary(w)) {
-          out.push(current.join(" "));
-          current = [];
+          out.push(cur.join(" "));
+          cur = [];
           continue;
         }
-        if (current.length <= 6) {
-          if (PREP.has(lw) || CONJ.has(lw)) {
-            continue;
-          }
-        }
-        if (current.length >= 5) {
-          out.push(current.join(" "));
-          current = [];
+        if (cur.length <= 6 && (PREP.has(lw) || CONJ.has(lw))) continue;
+        if (cur.length >= 5) {
+          out.push(cur.join(" "));
+          cur = [];
         }
       }
-      if (current.length > 0) out.push(current.join(" "));
+      if (cur.length) out.push(cur.join(" "));
       return out;
     }
 
-    function semanticChunk(wordsArr) {
+    function chunkSemantic(arr) {
       const out = [];
-      let current = [];
-      for (let i = 0; i < wordsArr.length; i++) {
-        const w = wordsArr[i];
+      let cur = [];
+      for (const w of arr) {
         const lw = w.toLowerCase();
-        current.push(w);
-
+        cur.push(w);
         if (isBoundary(w)) {
-          out.push(current.join(" "));
-          current = [];
+          out.push(cur.join(" "));
+          cur = [];
           continue;
         }
-
-        if (current.length >= 7) {
-          out.push(current.join(" "));
-          current = [];
+        if (cur.length >= 7) {
+          out.push(cur.join(" "));
+          cur = [];
           continue;
         }
-
-        if (CONJ.has(lw) || PREP.has(lw)) {
-          continue;
-        }
-
-        if (current.length >= 4) {
-          out.push(current.join(" "));
-          current = [];
+        if (CONJ.has(lw) || PREP.has(lw)) continue;
+        if (cur.length >= 4) {
+          out.push(cur.join(" "));
+          cur = [];
         }
       }
-      if (current.length > 0) out.push(current.join(" "));
+      if (cur.length) out.push(cur.join(" "));
       return out;
     }
 
-    function buildChunks(wordsArr, mode) {
-      if (mode === "conservative") return conservativeChunk(wordsArr);
-      if (mode === "balanced") return balancedChunk(wordsArr);
-      if (mode === "semantic") return semanticChunk(wordsArr);
-      return wordsArr;
+    function buildChunks(arr, mode) {
+      if (mode === "conservative") return chunkConservative(arr);
+      if (mode === "balanced") return chunkBalanced(arr);
+      if (mode === "semantic") return chunkSemantic(arr);
+      return arr;
     }
 
-    /* ------------------------- ORP & Rendering ------------------------- */
     function getORPIndex(word) {
       const clean = word.replace(/^[^\w]+|[^\w]+$/g, "");
-      const len = clean.length;
-      if (len === 0) return 0;
-      const base = Math.min(orpOffset, len - 1);
-      return base;
+      if (!clean) return 0;
+      return Math.min(rsvpORPOffset, clean.length - 1);
     }
 
     function highlightORP(word) {
@@ -573,7 +843,7 @@
       return (
         leading +
         core.slice(0, pivot) +
-        '<span class="highlight">' +
+        '<span class="orp">' +
         core[pivot] +
         "</span>" +
         core.slice(pivot + 1) +
@@ -581,1008 +851,542 @@
       );
     }
 
-    function highlightChunkORP(chunk) {
+    function highlightChunk(chunk) {
       const parts = chunk.split(" ");
       const mid = Math.floor(parts.length / 2);
-      const central = parts[mid];
-      parts[mid] = highlightORP(central);
+      parts[mid] = highlightORP(parts[mid]);
       return parts.join(" ");
     }
 
-    let alignScheduled = false;
-    let lastAlignTime = 0;
-
-    function alignToORP(htmlContent) {
-      orpWord.innerHTML = htmlContent;
-      orpWord.style.paddingLeft = "0px";
-      const containerWidth = orpContainer.clientWidth;
-      const containerCenter = containerWidth / 2;
-      const pivotEl = orpWord.querySelector(".highlight");
-      if (!pivotEl) return;
-      const pivotRect = pivotEl.getBoundingClientRect();
-      const wordRect = orpWord.getBoundingClientRect();
-      const pivotX = pivotRect.left - wordRect.left;
-      const pivotCenter = pivotX + pivotRect.width / 2;
-      const neededPadding = containerCenter - pivotCenter;
-      orpWord.style.paddingLeft = neededPadding + "px";
+    function renderToken() {
+      if (rsvpMode === "single") {
+        orpWord.innerHTML = highlightORP(rsvpWords[rsvpIndex] || "");
+      } else {
+        orpWord.innerHTML = highlightChunk(rsvpChunks[rsvpIndex] || "");
+      }
+      readerSub.textContent =
+        (rsvpMode === "single" ? rsvpIndex + 1 : rsvpIndex + 1) +
+        " / " +
+        (rsvpMode === "single" ? rsvpWords.length : rsvpChunks.length);
     }
 
-    function adjustFontSize() {
-      let size = parseFloat(window.getComputedStyle(orpWord).fontSize);
-      const containerWidth = orpContainer.clientWidth;
-      const maxChecks = 10;
-      let checks = 0;
-      while (orpWord.scrollWidth > containerWidth && size > 10 && checks < maxChecks) {
-        size -= 2;
-        orpWord.style.fontSize = size + "px";
-        checks++;
+    function computeDelay(token) {
+      const last = token.trim().slice(-1);
+      if (/[.!?]/.test(last)) return rsvpDelay * 3;
+      if (/[,;:]/.test(last)) return rsvpDelay * 2;
+      return rsvpDelay;
+    }
+
+    function showIndicator(text) {
+      indicator.textContent = text;
+      indicator.classList.add("visible");
+      clearTimeout(showIndicator._t);
+      showIndicator._t = setTimeout(() => {
+        indicator.classList.remove("visible");
+      }, 800);
+    }
+
+    async function enterFullscreen() {
+      if (document.documentElement.requestFullscreen) {
+        try {
+          await document.documentElement.requestFullscreen();
+        } catch {
+          // ignore
+        }
+      }
+      document.body.classList.add("fullscreen-mode");
+      cleanMode = true;
+      updateControlsVisibility();
+    }
+
+    function exitFullscreen() {
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+      document.body.classList.remove("fullscreen-mode");
+      cleanMode = true;
+      updateControlsVisibility();
+    }
+
+    function updateControlsVisibility() {
+      const inFs = document.body.classList.contains("fullscreen-mode");
+
+      if (!inFs) {
+        fullscreenControls.classList.remove("visible");
+        fullscreenSpeed.classList.remove("visible");
+        readerSub.style.display = "block";
+        return;
+      }
+
+      if (cleanMode) {
+        fullscreenControls.classList.remove("visible");
+        fullscreenSpeed.classList.remove("visible");
+        readerSub.style.display = "none"; // pure clean mode
+      } else {
+        fullscreenControls.classList.add("visible");
+        readerSub.style.display = "block";
+        if (rsvpPaused) {
+          fullscreenSpeed.classList.add("visible");
+        } else {
+          fullscreenSpeed.classList.remove("visible");
+        }
       }
     }
 
-    function scheduleAlignAndResize() {
-      const now = performance.now();
-      if (now - lastAlignTime < 150) return;
-      lastAlignTime = now;
-      if (alignScheduled) return;
-      alignScheduled = true;
-      requestAnimationFrame(() => {
-        alignScheduled = false;
-        alignToORP(orpWord.innerHTML);
-        adjustFontSize();
-      });
-    }
+    function forceStartReading(startIndex = 0, fullscreen = false) {
+      const text = inputText.value.trim();
+      if (!text) return;
 
-    function renderWord(word) {
-      const html = highlightORP(word);
-      orpWord.innerHTML = html;
-      scheduleAlignAndResize();
-    }
+      rsvpWords = tokenize(text);
+      rsvpChunks = buildChunks(rsvpWords, rsvpMode);
 
-    function renderChunk(chunk) {
-      const html = highlightChunkORP(chunk);
-      orpWord.innerHTML = html;
-      scheduleAlignAndResize();
-    }
+      const maxIndex =
+        (rsvpMode === "single" ? rsvpWords.length : rsvpChunks.length) - 1;
+      rsvpIndex = Math.max(0, Math.min(startIndex, maxIndex));
 
-    /* ------------------------- Reading Engine (rAF, smooth) ------------------------- */
-    let currentDelay = baseDelay;
+      rsvpRunning = true;
+      rsvpPaused = false;
+      rsvpAccum = 0;
+      rsvpLastFrame = performance.now();
 
-    function computeDelayForToken(token) {
-      let mult = 1;
-      const lastChar = token.trim().slice(-1);
-      if (/[.!?]/.test(lastChar)) mult = 3;
-      else if (/[,;:]/.test(lastChar)) mult = 2;
-      return baseDelay * mult;
+      editorPanel.style.display = "none";
+      readerPanel.classList.add("active");
+
+      pauseBtn.style.display = "inline-flex";
+      resumeBtn.style.display = "none";
+
+      if (fullscreen) {
+        enterFullscreen();
+      } else {
+        document.body.classList.remove("fullscreen-mode");
+        cleanMode = false;
+        updateControlsVisibility();
+      }
+
+      renderToken();
+      requestAnimationFrame(loop);
     }
 
     function startReading() {
-      const text = inputText.value.trim();
-      if (!text) return;
-      words = tokenizeText(text);
-      chunks = buildChunks(words, phraseMode);
-      const maxLen = (phraseMode === "single" ? words.length : chunks.length);
-      if (index >= maxLen) index = 0;
-
-      reading = true;
-      paused = false;
-      accumulatedTime = 0;
-      lastFrameTime = performance.now();
-
-      document.body.classList.add("reading");
-      ui.style.opacity = "0";
-      setTimeout(() => (ui.style.display = "none"), 500);
-      orpContainer.style.display = "block";
-
-      // controls visibility
-      pauseBtn.style.display = "inline-block";
-      resumeBtn.style.display = "none";
-      stopBtn.style.display = "inline-block";
-      skipRewindRow.style.display = "block";
-      saveProgressBtn.style.display = currentItemId ? "inline-block" : "none";
-      saveToLibraryBtn.style.display = "none";
-
-      const token = phraseMode === "single" ? words[index] : chunks[index];
-      currentDelay = computeDelayForToken(token);
-      renderCurrentToken();
-
-      updateSaveProgressButton();
-      requestAnimationFrame(readingLoop);
+      currentLibraryItemId = autoAddCurrentText();
+      forceStartReading(0, false);
     }
 
-    function readingLoop(timestamp) {
-      if (!reading || paused) return;
-      const delta = timestamp - lastFrameTime;
-      lastFrameTime = timestamp;
-      accumulatedTime += delta;
-
-      if (accumulatedTime >= currentDelay) {
-        accumulatedTime -= currentDelay;
-        advanceToken();
-      }
-
-      if (reading) {
-        requestAnimationFrame(readingLoop);
-      }
+    function startReadingFullscreen() {
+      currentLibraryItemId = autoAddCurrentText();
+      forceStartReading(0, true);
     }
 
-    function advanceToken() {
-      const maxLen = (phraseMode === "single" ? words.length : chunks.length);
-      index++;
-      if (index >= maxLen) {
+    function loop(ts) {
+      if (!rsvpRunning || rsvpPaused) return;
+
+      const delta = ts - rsvpLastFrame;
+      rsvpLastFrame = ts;
+      rsvpAccum += delta;
+
+      const token =
+        rsvpMode === "single" ? rsvpWords[rsvpIndex] : rsvpChunks[rsvpIndex];
+      const delay = computeDelay(token || "");
+
+      if (rsvpAccum >= delay) {
+        rsvpAccum -= delay;
+        advance();
+      }
+
+      if (rsvpRunning) requestAnimationFrame(loop);
+    }
+
+    function advance() {
+      const max =
+        rsvpMode === "single" ? rsvpWords.length : rsvpChunks.length;
+
+      rsvpIndex++;
+      if (rsvpIndex >= max) {
         stopReading();
         return;
       }
-      renderCurrentToken();
-      const token = phraseMode === "single" ? words[index] : chunks[index];
-      currentDelay = computeDelayForToken(token);
-    }
 
-    function renderCurrentToken() {
-      if (phraseMode === "single") {
-        if (index < 0 || index >= words.length) return;
-        renderWord(words[index]);
-      } else {
-        if (index < 0 || index >= chunks.length) return;
-        renderChunk(chunks[index]);
+      renderToken();
+
+      if (onProgressUpdate && currentLibraryItemId) {
+        onProgressUpdate(currentLibraryItemId, rsvpIndex, rsvpMode, rsvpSpeed);
       }
     }
 
     function pauseReading() {
-      if (!reading || paused) return;
-      paused = true;
-      saveProgressIfItem();
-
-      // show pause controls
-      resumeBtn.style.display = "inline-block";
+      if (!rsvpRunning || rsvpPaused) return;
+      rsvpPaused = true;
       pauseBtn.style.display = "none";
-      stopBtn.style.display = "inline-block";
-      skipRewindRow.style.display = "block";
-      saveProgressBtn.style.display = currentItemId ? "inline-block" : "none";
-      saveToLibraryBtn.style.display = "inline-block";
+      resumeBtn.style.display = "inline-flex";
+      showIndicator("Paused");
+      updateControlsVisibility();
     }
 
     function resumeReading() {
-      if (!reading || !paused) return;
-      paused = false;
-
-      // hide pause-only controls
+      if (!rsvpRunning || !rsvpPaused) return;
+      rsvpPaused = false;
       resumeBtn.style.display = "none";
-      pauseBtn.style.display = "inline-block";
-      stopBtn.style.display = "inline-block";
-      skipRewindRow.style.display = "block";
-      saveProgressBtn.style.display = "none";
-      saveToLibraryBtn.style.display = "none";
-
-      lastFrameTime = performance.now();
-      requestAnimationFrame(readingLoop);
+      pauseBtn.style.display = "inline-flex";
+      rsvpLastFrame = performance.now();
+      requestAnimationFrame(loop);
+      showIndicator("Resume");
+      updateControlsVisibility();
     }
 
     function stopReading() {
-      reading = false;
-      paused = false;
-      index = 0;
+      rsvpRunning = false;
+      rsvpPaused = false;
+      rsvpIndex = 0;
       orpWord.innerHTML = "";
-      orpContainer.style.display = "none";
-      document.body.classList.remove("reading");
-      ui.style.display = "flex";
-      setTimeout(() => (ui.style.opacity = "1"), 10);
-      exitHotspot.style.pointerEvents = "none";
-      saveProgressIfItem();
+      readerSub.textContent = "";
 
-      // reset controls
-      pauseBtn.style.display = "none";
+      editorPanel.style.display = "flex";
+      readerPanel.classList.remove("active");
+      pauseBtn.style.display = "inline-flex";
       resumeBtn.style.display = "none";
-      stopBtn.style.display = "none";
-      skipRewindRow.style.display = "none";
-      saveProgressBtn.style.display = "none";
-      saveToLibraryBtn.style.display = "inline-block";
+
+      exitFullscreen();
     }
 
-    function rewindWords() {
-      const maxLen = (phraseMode === "single" ? words.length : chunks.length);
-      index = Math.max(0, index - SKIP_AMOUNT);
-      if (index >= maxLen) index = maxLen - 1;
-      renderCurrentToken();
-      showIndicator("⏪ Rewind 50");
+    function rewind() {
+      const max =
+        rsvpMode === "single" ? rsvpWords.length : rsvpChunks.length;
+      rsvpIndex = Math.max(0, rsvpIndex - 50);
+      if (rsvpIndex >= max) rsvpIndex = max - 1;
+      renderToken();
+      showIndicator("⏪ -50");
     }
 
-    function skipWords() {
-      const maxLen = (phraseMode === "single" ? words.length : chunks.length);
-      index = Math.min(maxLen - 1, index + SKIP_AMOUNT);
-      renderCurrentToken();
-      showIndicator("⏩ Skip 50");
+    function skip() {
+      const max =
+        rsvpMode === "single" ? rsvpWords.length : rsvpChunks.length;
+      rsvpIndex = Math.min(max - 1, rsvpIndex + 50);
+      renderToken();
+      showIndicator("+50 ⏩");
     }
 
-    /* ------------------------- Gestures & Speed Overlay ------------------------- */
-    function showSpeedOverlay() {
-      const overlay = document.getElementById("speedOverlay");
-      overlay.classList.add("visible");
-      if (document.fullscreenElement || document.webkitFullscreenElement) {
-        exitMenuBtn.style.display = "inline-block";
-      } else {
-        exitMenuBtn.style.display = "none";
-      }
-      clearTimeout(speedOverlayTimeout);
-      speedOverlayTimeout = setTimeout(() => {
-        overlay.classList.remove("visible");
-      }, 2500);
-    }
+    startBtn.addEventListener("click", startReading);
+    fullscreenBtn.addEventListener("click", startReadingFullscreen);
+    pauseBtn.addEventListener("click", pauseReading);
+    resumeBtn.addEventListener("click", resumeReading);
+    stopBtn.addEventListener("click", stopReading);
+    rewindBtn.addEventListener("click", rewind);
+    skipBtn.addEventListener("click", skip);
 
-    exitMenuBtn.addEventListener("click", () => {
-      stopReading();
-      if (document.fullscreenElement || document.webkitFullscreenElement) {
-        if (document.exitFullscreen) document.exitFullscreen();
-        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-      }
-      document.getElementById("speedOverlay").classList.remove("visible");
+    // Tap to pause/resume in reader
+    readerPanel.addEventListener("click", (e) => {
+      if (e.target.closest(".fullscreen-controls") || e.target === exitHotspot) return;
+      if (!rsvpRunning) return;
+      rsvpPaused ? resumeReading() : pauseReading();
     });
 
-    document.body.addEventListener("click", (e) => {
-      if (modalOpen) return;
-      if (!document.body.classList.contains("reading")) return;
-      showSpeedOverlay();
-      if (paused) resumeReading();
-      else pauseReading();
-    });
+    // Wheel speed control
+    readerPanel.addEventListener(
+      "wheel",
+      (e) => {
+        e.preventDefault();
+        const delta = e.deltaY;
+        const step = 50;
+        if (delta < 0) setSpeed(Math.min(1200, rsvpSpeed + step));
+        else setSpeed(Math.max(150, rsvpSpeed - step));
+        showIndicator(rsvpSpeed + " WPM");
+      },
+      { passive: false }
+    );
 
-    let lastTap = 0;
-    document.body.addEventListener("touchend", (e) => {
-      if (modalOpen) return;
-      const now = Date.now();
-      const gap = now - lastTap;
-      if (gap < 300) {
-        const x = e.changedTouches[0].clientX;
-        if (x < window.innerWidth * 0.5) rewindWords();
-        else skipWords();
-      }
-      lastTap = now;
-    });
-
-    let touchStartY = null;
-    let touchStartX = null;
-    let touchFromBottom = false;
-
-    document.addEventListener("touchstart", (e) => {
-      if (modalOpen) return;
-      const t = e.changedTouches[0];
-      touchStartY = t.clientY;
-      touchStartX = t.clientX;
-      touchFromBottom = touchStartY > window.innerHeight * 0.8;
-    });
-
-    document.addEventListener("touchend", (e) => {
-      if (modalOpen) return;
-      if (!touchFromBottom) return;
-      const t = e.changedTouches[0];
-      const dy = t.clientY - touchStartY;
-      const dx = t.clientX - touchStartX;
-      if (Math.abs(dy) > 30 && Math.abs(dy) > Math.abs(dx)) {
-        if (dy < 0) setSpeedWPM(parseInt(speedControl.value, 10) + 50);
-        else setSpeedWPM(parseInt(speedControl.value, 10) - 50);
-      }
-      touchStartY = null;
-      touchStartX = null;
-      touchFromBottom = false;
-    });
-
-    function showIndicator(message) {
-      actionIndicator.textContent = message;
-      actionIndicator.style.transition = "none";
-      actionIndicator.style.opacity = "0";
-      void actionIndicator.offsetWidth;
-      actionIndicator.style.transition = "opacity 0.25s ease-in-out";
-      actionIndicator.style.opacity = "1";
-      setTimeout(() => {
-        actionIndicator.style.opacity = "0";
-      }, 900);
-    }
-
-    /* ------------------------- Fullscreen ------------------------- */
-    function enterFullscreen() {
-      const elem = document.documentElement;
-      if (elem.requestFullscreen) elem.requestFullscreen();
-      else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
-      else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
-    }
-
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
-
-    function handleFullscreenChange() {
-      const fs = document.fullscreenElement || document.webkitFullscreenElement;
-      if (!fs) {
-        pauseReading();
-        orpContainer.style.display = "none";
-        document.body.classList.remove("reading");
-        ui.style.display = "flex";
-        setTimeout(() => (ui.style.opacity = "1"), 10);
-        exitHotspot.style.pointerEvents = "none";
-        showIndicator("Exited fullscreen");
-      } else {
-        exitHotspot.style.pointerEvents = "auto";
-      }
-    }
-
-    window.addEventListener("resize", () => {
-      if (!document.body.classList.contains("reading")) return;
-      scheduleAlignAndResize();
-    });
-
+    // Hidden exit hotspot
     exitHotspot.addEventListener("click", () => {
-      if (document.fullscreenElement || document.webkitFullscreenElement) {
-        if (document.exitFullscreen) document.exitFullscreen();
-        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+      stopReading();
+    });
+
+    // Swipe gestures for clean mode (fullscreen only)
+    let touchStartY = null;
+    readerPanel.addEventListener("touchstart", (e) => {
+      if (e.touches.length === 1) {
+        touchStartY = e.touches[0].clientY;
       }
     });
 
-    /* ------------------------- File Load / Save ------------------------- */
-    function triggerFileLoad() {
-      fileInput.accept = ".txt";
-      fileInput.click();
-    }
+    readerPanel.addEventListener("touchend", (e) => {
+      if (touchStartY == null) return;
+      const endY = e.changedTouches[0].clientY;
+      const dy = endY - touchStartY;
+      const threshold = 40;
 
-    function triggerPdfLoad() {
-      fileInput.accept = ".pdf";
-      fileInput.click();
-    }
+      if (Math.abs(dy) > threshold) {
+        if (dy > 0) {
+          // swipe down -> show controls
+          cleanMode = false;
+          updateControlsVisibility();
+        } else {
+          // swipe up -> hide controls
+          cleanMode = true;
+          updateControlsVisibility();
+        }
+      }
 
-    fileInput.addEventListener("change", () => {
-      const file = fileInput.files[0];
-      if (!file) return;
-      if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
-        handlePdfFile(file);
+      touchStartY = null;
+    });
+
+    // Keyboard: H toggles clean mode in fullscreen
+    document.addEventListener("keydown", (e) => {
+      if (!document.body.classList.contains("fullscreen-mode")) return;
+      if (e.key.toLowerCase() === "h") {
+        cleanMode = !cleanMode;
+        updateControlsVisibility();
+      }
+    });
+
+    // Sync fullscreen state (desktop)
+    document.addEventListener("fullscreenchange", () => {
+      const fs = !!document.fullscreenElement;
+      if (fs) {
+        document.body.classList.add("fullscreen-mode");
+        cleanMode = true;
       } else {
-        const r = new FileReader();
-        r.onload = (e) => {
-          inputText.value = e.target.result;
-        };
-        r.readAsText(file);
+        document.body.classList.remove("fullscreen-mode");
+        cleanMode = true;
       }
+      updateControlsVisibility();
     });
 
-    async function handlePdfFile(file) {
-      importStatus.textContent = "Extracting PDF…";
-      openImportModal();
+    setSpeed(400);
+    fontValue.textContent = fontControl.value;
+    orpOffsetValue.textContent = orpOffsetControl.value;
+
+    /* ============================================================
+       LIBRARY ENGINE
+       ============================================================ */
+
+    const LIB_KEY = "rsvp_library_v1";
+
+    let library = (() => {
       try {
-        const arrayBuffer = await file.arrayBuffer();
-        const text = await extractTextFromPDFBuffer(arrayBuffer);
-        if (!text.trim()) {
-          importStatus.textContent = "No text found in PDF.";
-          return;
-        }
-        populateImportedText(text, file.name);
-        importStatus.textContent = "PDF imported.";
-      } catch (err) {
-        console.error(err);
-        importStatus.textContent = "PDF import failed.";
-      }
-    }
-
-    function saveTextFile() {
-      const blob = new Blob([inputText.value], { type: "text/plain" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "rsvp_text.txt";
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-
-    /* ------------------------- Library System ------------------------- */
-    const LIBRARY_KEY = "rsvp_library_v2";
-
-    function uuid() {
-      return "xxxx-4xxx-yxxx-xxxx".replace(/[xy]/g, c => {
-        const r = Math.random() * 16 | 0;
-        const v = c === "x" ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-      });
-    }
-
-    function createEmptyLibrary() {
-      return {
-        folders: [
-          { id: "root", name: "Library", parentId: null }
-        ],
-        items: [],
-        settings: {
-          lastOpenedItemId: null,
-          currentFolderId: "root"
-        }
-      };
-    }
-
-    function loadLibrary() {
-      try {
-        const raw = localStorage.getItem(LIBRARY_KEY);
-        if (!raw) return createEmptyLibrary();
+        const raw = localStorage.getItem(LIB_KEY);
+        if (!raw) return { items: {} };
         const parsed = JSON.parse(raw);
-        if (!parsed.folders || !parsed.items) return createEmptyLibrary();
-        if (!parsed.settings) parsed.settings = { lastOpenedItemId: null, currentFolderId: "root" };
+        if (!parsed.items) parsed.items = {};
         return parsed;
       } catch {
-        return createEmptyLibrary();
+        return { items: {} };
+      }
+    })();
+
+    const libraryList = document.getElementById("libraryList");
+    const librarySearch = document.getElementById("librarySearch");
+    const librarySummary = document.getElementById("librarySummary");
+    const saveToLibraryBtn = document.getElementById("saveToLibraryBtn");
+    const newItemBtn = document.getElementById("newItemBtn");
+    const exportLibraryBtn = document.getElementById("exportLibraryBtn");
+    const importLibraryBtn = document.getElementById("importLibraryBtn");
+    const libraryImportInput = document.getElementById("libraryImportInput");
+    const clearTextBtn = document.getElementById("clearTextBtn");
+
+    function uid() {
+      return "i_" + Math.random().toString(36).slice(2, 10);
+    }
+
+    function snippet(text) {
+      const t = text.trim().replace(/\s+/g, " ");
+      return t.length > 80 ? t.slice(0, 80) + "…" : t || "Untitled";
+    }
+
+    function saveLibrary() {
+      try {
+        localStorage.setItem(LIB_KEY, JSON.stringify(library));
+      } catch {
+        // ignore
       }
     }
 
-    let libraryWriteScheduled = false;
-    let libraryWriteBuffer = null;
+    function autoAddCurrentText() {
+      const text = inputText.value.trim();
+      if (!text) return null;
 
-    function scheduleSaveLibrary(lib) {
-      libraryWriteBuffer = lib;
-      if (libraryWriteScheduled) return;
-      libraryWriteScheduled = true;
-      setTimeout(() => {
-        libraryWriteScheduled = false;
-        try {
-          localStorage.setItem(LIBRARY_KEY, JSON.stringify(libraryWriteBuffer));
-        } catch {}
-      }, 200);
+      for (const id in library.items) {
+        if (library.items[id].content === text) {
+          return id;
+        }
+      }
+
+      const id = uid();
+      library.items[id] = {
+        id,
+        title: snippet(text),
+        content: text,
+        created: Date.now(),
+        updated: Date.now(),
+        progress: {
+          index: 0,
+          mode: rsvpMode,
+          speed: rsvpSpeed,
+          timestamp: Date.now()
+        }
+      };
+      saveLibrary();
+      renderLibrary();
+      return id;
     }
 
-    const Library = {
-      getAll() {
-        return loadLibrary();
-      },
-      createFolder(name, parentId = "root") {
-        const lib = loadLibrary();
-        const folder = {
-          id: uuid(),
-          name: name || "New Folder",
-          parentId
-        };
-        lib.folders.push(folder);
-        scheduleSaveLibrary(lib);
-        return folder;
-      },
-      renameFolder(folderId, newName) {
-        const lib = loadLibrary();
-        const folder = lib.folders.find(f => f.id === folderId);
-        if (!folder) return;
-        folder.name = newName || folder.name;
-        scheduleSaveLibrary(lib);
-      },
-      deleteFolder(folderId) {
-        const lib = loadLibrary();
-        if (folderId === "root") return;
-        lib.items.forEach(item => {
-          if (item.folderId === folderId) item.folderId = "root";
-        });
-        lib.folders = lib.folders.filter(f => f.id !== folderId);
-        if (lib.settings.currentFolderId === folderId) {
-          lib.settings.currentFolderId = "root";
-        }
-        scheduleSaveLibrary(lib);
-      },
-      createItem({ title, content, folderId = "root" }) {
-        const lib = loadLibrary();
-        const now = Date.now();
-        const item = {
-          id: uuid(),
-          title: title || "Untitled",
-          folderId,
-          content: content || "",
-          createdAt: now,
-          updatedAt: now,
-          lastPosition: {
-            wordIndex: 0,
-            wpm: parseInt(speedControl.value, 10) || 300,
-            mode: phraseMode,
-            fontSize: parseInt(window.getComputedStyle(orpWord).fontSize, 10) || 48,
-            theme: "dark"
-          }
-        };
-        lib.items.push(item);
-        lib.settings.lastOpenedItemId = item.id;
-        scheduleSaveLibrary(lib);
-        return item;
-      },
-      updateItemContent(itemId, newContent) {
-        const lib = loadLibrary();
-        const item = lib.items.find(i => i.id === itemId);
-        if (!item) return;
-        item.content = newContent;
-        item.updatedAt = Date.now();
-        scheduleSaveLibrary(lib);
-      },
-      renameItem(itemId, newTitle) {
-        const lib = loadLibrary();
-        const item = lib.items.find(i => i.id === itemId);
-        if (!item) return;
-        item.title = newTitle || item.title;
-        item.updatedAt = Date.now();
-        scheduleSaveLibrary(lib);
-      },
-      moveItem(itemId, newFolderId) {
-        const lib = loadLibrary();
-        const item = lib.items.find(i => i.id === itemId);
-        if (!item) return;
-        item.folderId = newFolderId || "root";
-        item.updatedAt = Date.now();
-        scheduleSaveLibrary(lib);
-      },
-      deleteItem(itemId) {
-        const lib = loadLibrary();
-        lib.items = lib.items.filter(i => i.id !== itemId);
-        if (lib.settings.lastOpenedItemId === itemId) {
-          lib.settings.lastOpenedItemId = null;
-        }
-        scheduleSaveLibrary(lib);
-      },
-      getItem(itemId) {
-        const lib = loadLibrary();
-        return lib.items.find(i => i.id === itemId) || null;
-      },
-      listItemsInFolder(folderId = "root") {
-        const lib = loadLibrary();
-        return lib.items.filter(i => i.folderId === folderId);
-      },
-      listFolders(parentId = null) {
-        const lib = loadLibrary();
-        return lib.folders.filter(f => f.parentId === parentId);
-      },
-      setLastOpenedItem(itemId) {
-        const lib = loadLibrary();
-        lib.settings.lastOpenedItemId = itemId;
-        scheduleSaveLibrary(lib);
-      },
-      getLastOpenedItem() {
-        const lib = loadLibrary();
-        if (!lib.settings.lastOpenedItemId) return null;
-        return lib.items.find(i => i.id === lib.settings.lastOpenedItemId) || null;
-      },
-      updateLastPosition(itemId, { wordIndex, wpm, mode, fontSize, theme }) {
-        const lib = loadLibrary();
-        const item = lib.items.find(i => i.id === itemId);
-        if (!item) return;
-        item.lastPosition = {
-          wordIndex: wordIndex ?? item.lastPosition.wordIndex,
-          wpm: wpm ?? item.lastPosition.wpm,
-          mode: mode ?? item.lastPosition.mode,
-          fontSize: fontSize ?? item.lastPosition.fontSize,
-          theme: theme ?? item.lastPosition.theme
-        };
-        item.updatedAt = Date.now();
-        scheduleSaveLibrary(lib);
-      },
-      setCurrentFolder(folderId) {
-        const lib = loadLibrary();
-        lib.settings.currentFolderId = folderId;
-        scheduleSaveLibrary(lib);
-      },
-      getCurrentFolderId() {
-        const lib = loadLibrary();
-        return lib.settings.currentFolderId || "root";
+    function renderLibrary() {
+      const query = librarySearch.value.toLowerCase();
+      libraryList.innerHTML = "";
+
+      const items = Object.values(library.items).sort(
+        (a, b) => b.updated - a.updated
+      );
+
+      let count = 0;
+
+      for (const item of items) {
+        const haystack =
+          (item.title || "").toLowerCase() +
+          " " +
+          (item.content || "").toLowerCase();
+        if (query && !haystack.includes(query)) continue;
+
+        count++;
+
+        const totalWords = (item.content || "").split(/\s+/).filter(Boolean)
+          .length;
+        const idx = item.progress?.index || 0;
+        const pct =
+          totalWords > 0 ? Math.min(100, Math.floor((idx / totalWords) * 100)) : 0;
+
+        const card = document.createElement("div");
+        card.className = "item-card";
+        card.dataset.id = item.id;
+
+        card.innerHTML = `
+          <div class="item-title-row">
+            <div class="item-title" title="${item.title}">${item.title}</div>
+            <div class="item-meta">${pct}%</div>
+          </div>
+          <div class="item-progress-bar">
+            <div class="item-progress-fill" style="width:${pct}%"></div>
+          </div>
+          <div class="item-actions">
+            <button class="btn btn-primary btn-continue">Continue</button>
+            <button class="btn btn-ghost btn-restart">Start over</button>
+            <button class="btn btn-ghost btn-rename">Rename</button>
+            <button class="btn btn-danger btn-delete">Delete</button>
+          </div>
+        `;
+
+        libraryList.appendChild(card);
       }
-    };
 
-    let currentItemId = null;
+      librarySummary.textContent = count + " item" + (count === 1 ? "" : "s");
 
-    function saveProgressIfItem() {
-      if (!currentItemId) return;
-      Library.updateLastPosition(currentItemId, {
-        wordIndex: index,
-        wpm: parseInt(speedControl.value, 10) || 300,
-        mode: phraseMode,
-        fontSize: parseInt(window.getComputedStyle(orpWord).fontSize, 10) || 48,
-        theme: "dark"
+      attachItemEvents();
+    }
+
+    function attachItemEvents() {
+      libraryList.querySelectorAll(".item-card").forEach((card) => {
+        const id = card.dataset.id;
+        const item = library.items[id];
+        if (!item) return;
+
+        card.querySelector(".btn-continue").onclick = () => {
+          openItem(id, true);
+        };
+        card.querySelector(".btn-restart").onclick = () => {
+          openItem(id, false);
+        };
+        card.querySelector(".btn-rename").onclick = () => {
+          const name = prompt("Rename item:", item.title || "Untitled");
+          if (!name) return;
+          item.title = name.trim();
+          item.updated = Date.now();
+          saveLibrary();
+          renderLibrary();
+        };
+        card.querySelector(".btn-delete").onclick = () => {
+          if (!confirm("Delete this item?")) return;
+          delete library.items[id];
+          saveLibrary();
+          renderLibrary();
+        };
       });
     }
 
-    function loadItemIntoReader(item) {
-      const pos = item.lastPosition || {};
+    function openItem(id, resume) {
+      const item = library.items[id];
+      if (!item) return;
+
       inputText.value = item.content || "";
-      phraseMode = pos.mode || "single";
-      modeRadios.forEach(r => {
-        r.checked = (r.value === phraseMode);
+      charCount.textContent = inputText.value.length + " characters";
+
+      currentLibraryItemId = id;
+
+      const startIndex = resume ? item.progress?.index || 0 : 0;
+      forceStartReading(startIndex, true);
+    }
+
+    saveToLibraryBtn.addEventListener("click", () => {
+      const id = autoAddCurrentText();
+      if (id) showIndicator("Saved");
+    });
+
+    newItemBtn.addEventListener("click", () => {
+      inputText.value = "";
+      charCount.textContent = "0 characters";
+      inputText.focus();
+    });
+
+    clearTextBtn.addEventListener("click", () => {
+      inputText.value = "";
+      charCount.textContent = "0 characters";
+    });
+
+    librarySearch.addEventListener("input", renderLibrary);
+
+    exportLibraryBtn.addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(library, null, 2)], {
+        type: "application/json"
       });
-      setSpeedWPM(pos.wpm || 300);
-      const size = pos.fontSize || 48;
-      fontControl.value = size;
-      fontValue.textContent = size;
-      orpWord.style.fontSize = size + "px";
-      index = pos.wordIndex || 0;
-      currentItemId = item.id;
-      updateSaveProgressButton();
-    }
-
-    function saveCurrentAsNewItem() {
-      const content = inputText.value || "";
-      if (!content.trim()) return;
-      const title = prompt("Title for this item?", "New Item") || "New Item";
-      const folderId = Library.getCurrentFolderId();
-      const item = Library.createItem({ title, content, folderId });
-      currentItemId = item.id;
-      renderLibraryUI();
-      showIndicator("Saved to library");
-      updateSaveProgressButton();
-    }
-
-    function saveCurrentItemContent() {
-      if (!currentItemId) return;
-      const content = inputText.value || "";
-      Library.updateItemContent(currentItemId, content);
-    }
-
-    function saveProgressToCurrentItem() {
-      if (!currentItemId) {
-        alert("No library item loaded.");
-        return;
-      }
-      saveProgressIfItem();
-      showIndicator("Progress saved");
-    }
-
-    function updateSaveProgressButton() {
-      saveProgressBtn.style.display = currentItemId ? "inline-block" : "none";
-    }
-
-    function openLibrary() {
-      modalOpen = true;
-      document.getElementById("libraryModal").style.display = "flex";
-      renderLibraryUI();
-    }
-
-    function closeLibrary() {
-      modalOpen = false;
-      document.getElementById("libraryModal").style.display = "none";
-    }
-
-    function createFolderPrompt() {
-      const name = prompt("Folder name?", "New Folder");
-      if (!name) return;
-      const parentId = Library.getCurrentFolderId();
-      Library.createFolder(name, parentId);
-      renderLibraryUI();
-    }
-
-    function renderLibraryUI() {
-      const lib = Library.getAll();
-      const currentFolderId = Library.getCurrentFolderId();
-      const foldersDiv = document.getElementById("libraryFolders");
-      const itemsDiv = document.getElementById("libraryItems");
-      foldersDiv.innerHTML = "";
-      itemsDiv.innerHTML = "";
-
-      const currentFolder = lib.folders.find(f => f.id === currentFolderId) || lib.folders[0];
-
-      const path = [];
-      let cursor = currentFolder;
-      while (cursor) {
-        path.unshift(cursor);
-        cursor = lib.folders.find(f => f.id === cursor.parentId) || null;
-      }
-
-      const pathDiv = document.createElement("div");
-      pathDiv.style.marginBottom = "6px";
-      pathDiv.innerHTML = path.map((f, idx) => {
-        const clickable = `<span style="cursor:pointer;" onclick="goToFolder('${f.id}')">${f.name}</span>`;
-        return idx === path.length - 1 ? `<strong>${f.name}</strong>` : clickable;
-      }).join(" / ");
-      foldersDiv.appendChild(pathDiv);
-
-      const childFolders = lib.folders.filter(f => f.parentId === currentFolderId);
-      childFolders.forEach(folder => {
-        const row = document.createElement("div");
-        row.className = "folder-row";
-        const left = document.createElement("span");
-        left.textContent = "📁 " + folder.name;
-        left.onclick = () => goToFolder(folder.id);
-        const right = document.createElement("div");
-        const renameBtn = document.createElement("button");
-        renameBtn.textContent = "✎";
-        renameBtn.className = "tiny-btn";
-        renameBtn.onclick = (e) => {
-          e.stopPropagation();
-          const newName = prompt("Rename folder", folder.name);
-          if (newName) {
-            Library.renameFolder(folder.id, newName);
-            renderLibraryUI();
-          }
-        };
-        const delBtn = document.createElement("button");
-        delBtn.textContent = "🗑";
-        delBtn.className = "tiny-btn";
-        delBtn.onclick = (e) => {
-          e.stopPropagation();
-          if (confirm("Delete folder? Items will move to root.")) {
-            Library.deleteFolder(folder.id);
-            renderLibraryUI();
-          }
-        };
-        right.appendChild(renameBtn);
-        right.appendChild(delBtn);
-        row.appendChild(left);
-        row.appendChild(right);
-        foldersDiv.appendChild(row);
-      });
-
-      const items = Library.listItemsInFolder(currentFolderId)
-        .sort((a, b) => b.updatedAt - a.updatedAt);
-
-      if (items.length === 0) {
-        itemsDiv.innerHTML = "<p>No items in this folder.</p>";
-      } else {
-        items.forEach(item => {
-          const row = document.createElement("div");
-          row.className = "item-row";
-
-          const main = document.createElement("div");
-          main.className = "item-main";
-          const title = document.createElement("div");
-          title.textContent = item.title;
-          const meta = document.createElement("div");
-          meta.className = "item-meta";
-          const pos = item.lastPosition?.wordIndex || 0;
-          meta.textContent = `Saved at word ${pos}`;
-          main.appendChild(title);
-          main.appendChild(meta);
-
-          main.onclick = () => {
-            currentItemId = item.id;
-            Library.setLastOpenedItem(item.id);
-            loadItemIntoReader(item);
-            closeLibrary();
-          };
-
-          const right = document.createElement("div");
-          const renameBtn = document.createElement("button");
-          renameBtn.textContent = "✎";
-          renameBtn.className = "tiny-btn";
-          renameBtn.onclick = (e) => {
-            e.stopPropagation();
-            const newTitle = prompt("Rename item", item.title);
-            if (newTitle) {
-              Library.renameItem(item.id, newTitle);
-              renderLibraryUI();
-            }
-          };
-
-          const moveBtn = document.createElement("button");
-          moveBtn.textContent = "⇄";
-          moveBtn.className = "tiny-btn";
-          moveBtn.onclick = (e) => {
-            e.stopPropagation();
-            moveItemPrompt(item.id);
-          };
-
-          const delBtn = document.createElement("button");
-          delBtn.textContent = "🗑";
-          delBtn.className = "tiny-btn";
-          delBtn.onclick = (e) => {
-            e.stopPropagation();
-            if (confirm("Delete this item?")) {
-              Library.deleteItem(item.id);
-              if (currentItemId === item.id) currentItemId = null;
-              renderLibraryUI();
-            }
-          };
-
-          right.appendChild(renameBtn);
-          right.appendChild(moveBtn);
-          right.appendChild(delBtn);
-
-          row.appendChild(main);
-          row.appendChild(right);
-          itemsDiv.appendChild(row);
-        });
-      }
-    }
-
-    function goToFolder(folderId) {
-      Library.setCurrentFolder(folderId);
-      renderLibraryUI();
-    }
-
-    function moveItemPrompt(itemId) {
-      const lib = Library.getAll();
-      const names = lib.folders.map(f => `${f.id}: ${f.name}`).join("\n");
-      const target = prompt("Move to folder (enter folder id):\n" + names, "root");
-      if (!target) return;
-      Library.moveItem(itemId, target);
-      renderLibraryUI();
-    }
-
-    /* ------------------------- Export / Import Library ------------------------- */
-    function exportLibrary() {
-      const lib = loadLibrary();
-      const json = JSON.stringify(lib, null, 2);
-      const blob = new Blob([json], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "rsvp_library_export.json";
+      a.download = "rsvp_library.json";
       a.click();
       URL.revokeObjectURL(url);
-    }
+    });
 
-    function triggerLibraryImport() {
+    importLibraryBtn.addEventListener("click", () => {
       libraryImportInput.value = "";
       libraryImportInput.click();
-    }
-
-    libraryImportInput.addEventListener("change", (e) => {
-      const file = e.target.files[0];
-      if (file) importLibrary(file);
     });
 
-    function importLibrary(file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const imported = JSON.parse(e.target.result);
-          if (!imported.items || !imported.folders) {
-            alert("Invalid library file.");
-            return;
-          }
-          localStorage.setItem(LIBRARY_KEY, JSON.stringify(imported));
-          alert("Library imported. Reloading…");
-          location.reload();
-        } catch (err) {
-          console.error(err);
-          alert("Failed to import library.");
-        }
-      };
-      reader.readAsText(file);
-    }
-
-    /* ------------------------- Import Modal & URL / PDF ------------------------- */
-    function openImportModal() {
-      modalOpen = true;
-      document.getElementById("importModal").style.display = "flex";
-    }
-
-    function closeImportModal() {
-      modalOpen = false;
-      document.getElementById("importModal").style.display = "none";
-      importStatus.textContent = "";
-    }
-
-    async function importFromUrl() {
-      const url = importUrl.value.trim();
-      if (!url) {
-        importStatus.textContent = "Enter a URL.";
-        return;
-      }
-      importStatus.textContent = "Importing…";
+    libraryImportInput.addEventListener("change", async () => {
+      const file = libraryImportInput.files[0];
+      if (!file) return;
       try {
-        const resp = await fetch(url, { method: "GET" });
-        const contentType = resp.headers.get("content-type") || "";
-        if (contentType.includes("application/pdf") || url.toLowerCase().endsWith(".pdf")) {
-          importStatus.textContent = "PDF detected — extracting text…";
-          const arrayBuffer = await resp.arrayBuffer();
-          const text = await extractTextFromPDFBuffer(arrayBuffer);
-          if (!text.trim()) {
-            importStatus.textContent = "No text found in PDF.";
-            return;
-          }
-          populateImportedText(text, url);
-          importStatus.textContent = "Imported PDF.";
-          return;
-        }
-        const html = await resp.text();
-        const doc = new DOMParser().parseFromString(html, "text/html");
-        let article = null;
-        if (typeof Readability !== "undefined") {
-          try {
-            article = new Readability(doc).parse();
-          } catch {}
-        }
-        let extracted = "";
-        if (article && article.textContent) {
-          extracted = (article.title ? article.title + "\n\n" : "") + article.textContent;
-        } else {
-          const articleEl = doc.querySelector("article") || doc.querySelector("main") || doc.body;
-          extracted = (doc.title ? doc.title + "\n\n" : "") + (articleEl ? articleEl.innerText : doc.body.innerText);
-        }
-        if (!extracted.trim()) {
-          importStatus.textContent = "Could not extract main content.";
-          return;
-        }
-        populateImportedText(extracted, url);
-        importStatus.textContent = "Imported article.";
-      } catch (err) {
-        console.error(err);
-        importStatus.textContent = "Fetch failed (CORS or network).";
+        const text = await file.text();
+        const data = JSON.parse(text);
+        if (!data.items) throw new Error();
+        library = data;
+        saveLibrary();
+        renderLibrary();
+      } catch {
+        alert("Invalid library file.");
       }
-    }
-
-    async function extractTextFromPDFBuffer(arrayBuffer) {
-      try {
-        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-        const pdf = await loadingTask.promise;
-        let fullText = "";
-        for (let p = 1; p <= pdf.numPages; p++) {
-          const page = await pdf.getPage(p);
-          const content = await page.getTextContent();
-          const pageText = content.items.map(i => i.str).join(" ");
-          fullText += pageText + "\n\n";
-        }
-        return fullText;
-      } catch (err) {
-        console.error("PDF extraction error", err);
-        return "";
-      }
-    }
-
-    function populateImportedText(text, source) {
-      const cleaned = text
-        .replace(/\r\n/g, "\n")
-        .replace(/\n{3,}/g, "\n\n")
-        .trim();
-      inputText.value = cleaned + "\n\n[Source: " + source + "]";
-      currentItemId = null;
-      updateSaveProgressButton();
-      if (autoStartImport && autoStartImport.checked) {
-        setTimeout(() => startReading(), 200);
-      }
-    }
-
-    /* ------------------------- Controls Modal ------------------------- */
-    function openControls() {
-      modalOpen = true;
-      document.getElementById("controlsModal").style.display = "flex";
-    }
-
-    function closeControls() {
-      modalOpen = false;
-      document.getElementById("controlsModal").style.display = "none";
-    }
-
-    /* ------------------------- Auto‑Resume Draft (debounced) ------------------------- */
-    const LS_DRAFT_KEY = "rsvp_lastDraft";
-    const LS_DRAFT_POS_KEY = "rsvp_lastDraftPosition";
-
-    let draftSaveTimeout = null;
-
-    function scheduleSaveLastDraft() {
-      clearTimeout(draftSaveTimeout);
-      draftSaveTimeout = setTimeout(() => {
-        try {
-          localStorage.setItem(LS_DRAFT_KEY, inputText.value || "");
-        } catch {}
-      }, 500);
-    }
-
-    function saveLastDraftPosition() {
-      try {
-        localStorage.setItem(LS_DRAFT_POS_KEY, String(index || 0));
-      } catch {}
-    }
-
-    function loadDraftOnStartup() {
-      try {
-        const draft = localStorage.getItem(LS_DRAFT_KEY);
-        if (!draft) return;
-        inputText.value = draft;
-        const pos = parseInt(localStorage.getItem(LS_DRAFT_POS_KEY) || "0", 10);
-        if (!isNaN(pos) && pos > 0) {
-          index = pos;
-        }
-      } catch {}
-    }
-
-    inputText.addEventListener("input", scheduleSaveLastDraft);
-    inputText.addEventListener("paste", () => setTimeout(scheduleSaveLastDraft, 50));
-    inputText.addEventListener("blur", scheduleSaveLastDraft);
-
-    /* ------------------------- Startup ------------------------- */
-    window.addEventListener("load", () => {
-      loadDraftOnStartup();
-      const last = Library.getLastOpenedItem();
-      if (last) {
-        loadItemIntoReader(last);
-      }
-      updateSaveProgressButton();
-      orpWord.style.fontSize = fontControl.value + "px";
     });
 
-    window.addEventListener("beforeunload", () => {
-      scheduleSaveLastDraft();
-      saveLastDraftPosition();
-      saveCurrentItemContent();
-    });
+    // Progress callback from RSVP
+    onProgressUpdate = (id, index, mode, speed) => {
+      const item = library.items[id];
+      if (!item) return;
+      item.progress.index = index;
+      item.progress.mode = mode;
+      item.progress.speed = speed;
+      item.progress.timestamp = Date.now();
+      item.updated = Date.now();
+      saveLibrary();
+      renderLibrary();
+    };
+
+    renderLibrary();
   </script>
 </body>
 </html>
-

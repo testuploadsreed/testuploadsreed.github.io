@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>RSVP Reader — Auto Resume</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+  <style>
+    body {
+      background-color: black;
+      color: white;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      overflow: hidden;
+      touch-action: manipulation;
+    }
+
+    #ui {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: opacity 0.5s ease;
+    }
+
+    #reader {
+      font-size: 6em;
+      text-align: center;
+      display: none;
+      max-width: 90%;
+      line-height: 1.2;
+      user-select: none;
+    }
+
+    .highlight { color: red; }
+
+    textarea {
+      width: 80%;
+      height: 120px;
+      margin: 10px;
+      background: #111;
+      color: white;
+      border: 1px solid #444;
+      padding: 10px;
+      font-size: 1.2em;
+    }
+
+    button {
+      margin: 5px;
+      padding: 10px 20px;
+      background: #222;
+      color: white;
+      border: 1px solid #444;
+      cursor: pointer;
+      font-size: 1.1em;
+    }
+    button:hover { background: #333; }
+
+    /* Hidden fullscreen exit hotspot */
+    #exitFullscreenHotspot {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 60px;
+      height: 60px;
+      opacity: 0;
+      pointer-events: none; /* enabled only in fullscreen */
+      z-index: 9999999;
+    }
+
+    /* Modals */
+    .modal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+    }
+
+    .modal-content {
+      background: #222;
+      padding: 20px;
+      border: 1px solid #444;
+      width: 80%;
+      max-width: 700px;
+      max-height: 80%;
+      overflow-y: auto;
+    }
+
+    #actionIndicator {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.6);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-size: 1.4em;
+      opacity: 0;
+      transition: opacity 0.25s ease-in-out;
+      pointer-events: none;
+      z-index: 999999;
+    }
+  </style>
+
+  <script src="https://unpkg.com/@mozilla/readability@0.4.4/Readability.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.9.179/pdf.min.js"></script>
+</head>
+
+<body>
+
+  <!-- Hidden fullscreen exit hotspot -->
+  <div id="exitFullscreenHotspot"></div>
+
+  <div id="ui">
+    <h1>RSVP Reader</h1>
+
+    <textarea id="inputText" placeholder="Paste text here..."></textarea>
+
+    <div class="controls">
+      <label>Speed (WPM):
+        <input type="range" id="speedControl" min="100" max="1000" value="300" step="50">
+        <span id="speedValue">300</span>
+      </label>
+
+      <label>Words per frame:
+        <select id="groupSizeSelect">
+          <option value="1" selected>1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+        </select>
+      </label>
+    </div>
+
+    <div>
+      <button onclick="startReading()">Start</button>
+      <button onclick="pauseReading()">Pause</button>
+      <button onclick="resumeReading()">Resume</button>
+      <button onclick="stopReading()">Stop</button>
+      <button onclick="enterFullscreen()">Full Screen</button>
+      <button id="saveProgressBtn" style="display:none;" onclick="saveProgressToLibrary()">Save Progress</button>
+    </div>
+
+    <div style="margin-top:8px;">
+      <button onclick="triggerFileLoad()">Load .txt</button>
+      <button onclick="saveTextFile()">Save .txt</button>
+      <button onclick="saveToLibrary()">Save to Library</button>
+      <button onclick="openLibrary()">Library</button>
+      <button onclick="openControls()">Controls</button>
+    </div>
+
+    <input type="file" id="fileInput" accept=".txt">
+  </div>
+
+  <div id="reader" aria-live="polite"></div>
+
+  <!-- Library Modal -->
+  <div id="libraryModal" class="modal">
+    <div class="modal-content">
+      <h2>Saved Texts</h2>
+      <div id="libraryList"></div>
+      <button onclick="closeLibrary()">Close</button>
+    </div>
+  </div>
+
+  <!-- Controls Modal -->
+  <div id="controlsModal" class="modal">
+    <div class="modal-content">
+      <h2>Controls Reference</h2>
+
+      <p><strong>Touch Controls:</strong></p>
+      <ul>
+        <li>Single tap → Pause / Resume</li>
+        <li>Double‑tap left → Rewind 50 words</li>
+        <li>Double‑tap right → Skip 50 words</li>
+        <li>Swipe up/down from bottom → Adjust speed</li>
+        <li><strong>Tap top‑left corner → Exit Fullscreen</strong></li>
+      </ul>
+
+      <p><strong>Keyboard Controls:</strong></p>
+      <ul>
+        <li>Space → Pause / Resume</li>
+        <li>Left Arrow → Rewind 50 words</li>
+        <li>Right Arrow → Skip 50 words</li>
+        <li>H → Toggle UI</li>
+        <li>ESC → Exit Fullscreen</li>
+        <li>Scroll wheel → Adjust speed</li>
+      </ul>
+
+      <button onclick="closeControls()">Close</button>
+    </div>
+  </div>
+
+  <div id="actionIndicator"></div>
+
+  <script>
+    /* -------------------------
+       State
+       ------------------------- */
+    let words = [];
+    let index = 0;
+    let interval = null;
+    let delay = 60000 / 300;
+    let paused = false;
+    let groupSize = 1;
+    const SKIP_AMOUNT = 50;
+    let modalOpen = false;
+    let currentLibraryIndex = null;
+    let draftSaveInterval = null;
+    const speedControl = document.getElementById('speedControl');
+    const speedValue = document.getElementById('speedValue');
+    const groupSizeSelect = document.getElementById('groupSizeSelect');
+    const reader = document.getElementById('reader');
+    const ui = document.getElementById('ui');
+    const fileInput = document.getElementById('fileInput');
+    const inputText = document.getElementById('inputText');
+    const actionIndicator = document.getElementById('actionIndicator');
+    const saveProgressBtn = document.getElementById('saveProgressBtn');
+    const exitHotspot = document.getElementById('exitFullscreenHotspot');
+
+    /* -------------------------
+       Speed Controls
+       ------------------------- */
+    function setSpeedWPM(wpm) {
+      wpm = Math.max(100, Math.min(1000, Math.round(wpm / 50) * 50));
+      speedControl.value = wpm;
+      speedValue.textContent = wpm;
+      delay = 60000 / wpm;
+
+      if (interval) {
+        clearInterval(interval);
+        interval = setInterval(showWord, delay);
+      }
+    }
+
+    speedControl.addEventListener('input', () => {
+      setSpeedWPM(parseInt(speedControl.value, 10));
+    });
+
+    /* -------------------------
+       File Load / Save
+       ------------------------- */
+    function triggerFileLoad() { fileInput.click(); }
+
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      const r = new FileReader();
+      r.onload = (e) => { inputText.value = e.target.result; };
+      r.readAsText(file);
+    });
+
+    function saveTextFile() {
+      const blob = new Blob([inputText.value], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "rsvp_text.txt";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    /* -------------------------
+       Library
+       ------------------------- */
+    function getLibrary() {
+      return JSON.parse(localStorage.getItem("rsvpLibrary") || "[]");
+    }
+
+    function setLibrary(lib) {
+      localStorage.setItem("rsvpLibrary", JSON.stringify(lib));
+    }
+
+    function saveToLibrary() {
+      const text = inputText.value.trim();
+      if (!text) return;
+      const library = getLibrary();
+      const name = "Entry " + (library.length + 1);
+      library.push({ text, timestamp: Date.now(), name, position: 0 });
+      setLibrary(library);
+      alert("Saved to library");
+    }
+
+    function openLibrary() {
+      modalOpen = true;
+      const modal = document.getElementById("libraryModal");
+      const list = document.getElementById("libraryList");
+      list.innerHTML = "";
+
+      const library = getLibrary();
+      if (library.length === 0) {
+        list.innerHTML = "<p>No saved texts yet.</p>";
+      } else {
+        library.forEach((entry, i) => {
+          const div = document.createElement("div");
+          div.style.borderBottom = "1px solid #444";
+          div.style.padding = "10px 0";
+
+          const preview = entry.text.substring(0, 120).replace(/\n/g, " ");
+          const name = entry.name || ("Entry " + (i + 1));
+          const pos = entry.position || 0;
+          const posLabel = pos > 0 ? ` (saved at word ${pos})` : "";
+
+          div.innerHTML = `
+            <strong>${name}</strong>${posLabel}<br>
+            <em>${preview}...</em><br>
+            <button onclick="loadLibraryItemStart(${i})">Start</button>
+            <button onclick="loadLibraryItemContinue(${i})">Continue</button>
+            <button onclick="deleteLibraryItem(${i})">Delete</button>
+          `;
+          list.appendChild(div);
+        });
+      }
+
+      modal.style.display = "flex";
+    }
+
+    function closeLibrary() {
+      modalOpen = false;
+      document.getElementById("libraryModal").style.display = "none";
+    }
+
+    function loadLibraryItemStart(i) {
+      const library = getLibrary();
+      if (!library[i]) return;
+      inputText.value = library[i].text;
+      currentLibraryIndex = i;
+      index = 0;
+      startReading();
+      closeLibrary();
+      updateSaveProgressButton();
+    }
+
+    function loadLibraryItemContinue(i) {
+      const library = getLibrary();
+      if (!library[i]) return;
+      inputText.value = library[i].text;
+      currentLibraryIndex = i;
+      index = library[i].position || 0;
+      startReading();
+      closeLibrary();
+      updateSaveProgressButton();
+    }
+
+    function deleteLibraryItem(i) {
+      const library = getLibrary();
+      library.splice(i, 1);
+      setLibrary(library);
+      openLibrary();
+    }
+
+    function saveProgressToLibrary() {
+      if (currentLibraryIndex === null) {
+        alert("No library item loaded.");
+        return;
+      }
+      const library = getLibrary();
+      library[currentLibraryIndex].position = index;
+      setLibrary(library);
+      showIndicator("Progress saved");
+    }
+
+    function updateSaveProgressButton() {
+      saveProgressBtn.style.display =
+        currentLibraryIndex !== null ? "inline-block" : "none";
+    }
+
+    /* -------------------------
+       ORP + Reading Engine
+       ------------------------- */
+    function getORPIndex(word) {
+      const clean = word.replace(/^[^\w]+|[^\w]+$/g, "");
+      const len = clean.length;
+      if (len <= 1) return 0;
+      if (len <= 5) return 1;
+      if (len <= 9) return 2;
+      return 3;
+    }
+
+    function highlightORP(word) {
+      const leading = word.match(/^[^\w]+/)?.[0] || "";
+      const trailing = word.match(/[^\w]+$/)?.[0] || "";
+      const core = word.replace(/^[^\w]+|[^\w]+$/g, "");
+      if (!core) return word;
+
+      const pivot = getORPIndex(core);
+      return (
+        leading +
+        core.substring(0, pivot) +
+        '<span class="highlight">' +
+        core.charAt(pivot) +
+        "</span>" +
+        core.substring(pivot + 1) +
+        trailing
+      );
+    }
+
+    function getWordGroup() {
+      const group = words.slice(index, index + groupSize);
+      index += groupSize;
+      return group;
+    }
+
+    function punctuationDelayMultiplier(text) {
+      const trimmed = text.trim();
+      if (/[.!?]$/.test(trimmed)) return 3;
+      if (/[,;:]$/.test(trimmed)) return 2;
+      return 1;
+    }
+
+    function startReading() {
+      const text = inputText.value.trim();
+      if (!text) return;
+
+      words = text.split(/\s+/);
+      if (index >= words.length) index = 0;
+
+      paused = false;
+      clearInterval(interval);
+      delay = 60000 / parseInt(speedControl.value, 10);
+
+      ui.style.opacity = "0";
+      setTimeout(() => (ui.style.display = "none"), 500);
+
+      reader.style.display = "block";
+      interval = setInterval(showWord, delay);
+
+      updateSaveProgressButton();
+    }
+
+    function pauseReading() {
+      clearInterval(interval);
+      interval = null;
+      paused = true;
+    }
+
+    function resumeReading() {
+      if (!interval && index < words.length) {
+        paused = false;
+        interval = setInterval(showWord, delay);
+      }
+    }
+
+    function stopReading() {
+      clearInterval(interval);
+      interval = null;
+      index = 0;
+      paused = false;
+
+      reader.innerHTML = "";
+      reader.style.display = "none";
+
+      ui.style.display = "flex";
+      setTimeout(() => (ui.style.opacity = "1"), 10);
+    }
+
+    function showWord() {
+      if (index >= words.length) {
+        stopReading();
+        return;
+      }
+
+      const group = getWordGroup();
+      reader.innerHTML = group.map(highlightORP).join(" ");
+
+      const lastWord = group[group.length - 1];
+      const mult = punctuationDelayMultiplier(lastWord);
+
+      clearInterval(interval);
+      interval = setInterval(showWord, delay * mult);
+    }
+    /* -------------------------
+       Skip / Rewind Indicators
+       ------------------------- */
+    function showIndicator(message) {
+      actionIndicator.textContent = message;
+      actionIndicator.style.transition = "none";
+      actionIndicator.style.opacity = "0";
+      void actionIndicator.offsetWidth;
+      actionIndicator.style.transition = "opacity 0.25s ease-in-out";
+      actionIndicator.style.opacity = "1";
+      setTimeout(() => { actionIndicator.style.opacity = "0"; }, 900);
+    }
+
+    function rewindWords() {
+      index = Math.max(0, index - SKIP_AMOUNT);
+      showIndicator("⏪ Rewind 50 words");
+    }
+
+    function skipWords() {
+      index = Math.min(words.length - 1, index + SKIP_AMOUNT);
+      showIndicator("⏩ Skip 50 words");
+    }
+
+    /* -------------------------
+       Touch Controls
+       ------------------------- */
+
+    /* Single tap → Pause/Resume */
+    document.body.addEventListener("click", () => {
+      if (modalOpen) return;
+      if (reader.style.display === "none") return;
+      paused ? resumeReading() : pauseReading();
+    });
+
+    /* Double‑tap left/right → Skip/Rewind */
+    let lastTap = 0;
+    document.body.addEventListener("touchend", (e) => {
+      if (modalOpen) return;
+
+      const currentTime = Date.now();
+      const tapGap = currentTime - lastTap;
+
+      if (tapGap < 300) {
+        const x = e.changedTouches[0].clientX;
+        if (x < window.innerWidth * 0.5) rewindWords();
+        else skipWords();
+      }
+
+      lastTap = currentTime;
+    });
+
+    /* Swipe up/down from bottom → Adjust speed */
+    let touchStartY = null;
+    let touchStartX = null;
+    let touchFromBottom = false;
+
+    document.addaddEventListener("touchstart", (e) => {
+      if (modalOpen) return;
+      const t = e.changedTouches[0];
+      touchStartY = t.clientY;
+      touchStartX = t.clientX;
+      touchFromBottom = (touchStartY > window.innerHeight * 0.8);
+    });
+
+    document.addEventListener("touchend", (e) => {
+      if (modalOpen) return;
+      if (!touchFromBottom) return;
+
+      const t = e.changedTouches[0];
+      const dy = t.clientY - touchStartY;
+      const dx = t.clientX - touchStartX;
+
+      if (Math.abs(dy) > 30 && Math.abs(dy) > Math.abs(dx)) {
+        if (dy < 0) setSpeedWPM(parseInt(speedControl.value, 10) + 50);
+        else setSpeedWPM(parseInt(speedControl.value, 10) - 50);
+      }
+
+      touchStartY = null;
+      touchStartX = null;
+      touchFromBottom = false;
+    });
+
+    /* -------------------------
+       Keyboard Controls
+       ------------------------- */
+    document.addEventListener("keydown", (e) => {
+      if (modalOpen) return;
+
+      if (e.code === "Space") {
+        e.preventDefault();
+        paused ? resumeReading() : pauseReading();
+        return;
+      }
+      if (e.code === "ArrowLeft") { rewindWords(); return; }
+      if (e.code === "ArrowRight") { skipWords(); return; }
+      if (e.code === "Escape") {
+        if (document.fullscreenElement) document.exitFullscreen();
+        return;
+      }
+      if (e.key.toLowerCase() === "h") {
+        if (ui.style.display === "none") {
+          ui.style.display = "flex";
+          setTimeout(() => ui.style.opacity = "1", 10);
+        } else {
+          ui.style.opacity = "0";
+          setTimeout(() => ui.style.display = "none", 500);
+        }
+      }
+    });
+
+    /* -------------------------
+       Fullscreen + Hotspot Exit
+       ------------------------- */
+    function enterFullscreen() {
+      const elem = document.documentElement;
+      if (elem.requestFullscreen) elem.requestFullscreen();
+      else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+      else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
+    }
+
+    /* NEW: Reliable fullscreen exit handling */
+    document.addEventListener("fullscreenchange", () => {
+      if (!document.fullscreenElement) {
+        // Fully exited fullscreen
+        pauseReading();
+
+        reader.style.display = "none";
+        ui.style.display = "flex";
+        setTimeout(() => ui.style.opacity = "1", 10);
+
+        exitHotspot.style.pointerEvents = "none";
+
+        showIndicator("⤓ Exit Fullscreen");
+      } else {
+        // Entered fullscreen
+        exitHotspot.style.pointerEvents = "auto";
+      }
+    });
+
+    /* Hotspot click simply exits fullscreen */
+    exitHotspot.addEventListener("click", () => {
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      }
+    });
+
+    /* -------------------------
+       Utility
+       ------------------------- */
+    function escapeHtml(str) {
+      if (!str) return "";
+      return str.replace(/[&<>"']/g, (m) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      })[m]);
+    }
+
+    /* Close modals when clicking outside */
+    document.querySelectorAll('.modal').forEach(modal => {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          if (modal.id === "libraryModal") closeLibrary();
+          if (modal.id === "controlsModal") closeControls();
+        }
+      });
+    });
+
+    function openControls() {
+      modalOpen = true;
+      document.getElementById("controlsModal").style.display = "flex";
+    }
+
+    function closeControls() {
+      modalOpen = false;
+      document.getElementById("controlsModal").style.display = "none";
+    }
+    /* -------------------------
+       Import from URL / PDF
+       ------------------------- */
+
+    async function importFromUrl() {
+      const url = importUrl.value.trim();
+      if (!url) {
+        importStatus.textContent = "Enter a URL";
+        return;
+      }
+
+      importStatus.textContent = "Importing…";
+
+      try {
+        const resp = await fetch(url, { method: "GET" });
+        const contentType = resp.headers.get("content-type") || "";
+
+        /* PDF */
+        if (contentType.includes("application/pdf") || url.toLowerCase().endsWith(".pdf")) {
+          importStatus.textContent = "PDF detected — extracting text…";
+          const arrayBuffer = await resp.arrayBuffer();
+          const text = await extractTextFromPDFBuffer(arrayBuffer);
+
+          if (!text.trim()) {
+            importStatus.textContent = "No text found in PDF";
+            return;
+          }
+
+          populateImportedText(text, url);
+          importStatus.textContent = "Imported PDF";
+          return;
+        }
+
+        /* HTML / Article */
+        const html = await resp.text();
+        const doc = new DOMParser().parseFromString(html, "text/html");
+
+        let article = null;
+        if (typeof Readability !== "undefined") {
+          try { article = new Readability(doc).parse(); } catch {}
+        }
+
+        let extracted = "";
+        if (article && article.textContent) {
+          extracted = (article.title ? article.title + "\n\n" : "") + article.textContent;
+        } else {
+          const articleEl = doc.querySelector("article") || doc.querySelector("main") || doc.body;
+          extracted =
+            (doc.title ? doc.title + "\n\n" : "") +
+            (articleEl ? articleEl.innerText : doc.body.innerText);
+        }
+
+        if (!extracted.trim()) {
+          importStatus.textContent = "Could not extract main content.";
+          return;
+        }
+
+        populateImportedText(extracted, url);
+        importStatus.textContent = "Imported article";
+      } catch (err) {
+        console.error(err);
+        importStatus.textContent = "Fetch failed (CORS or network).";
+      }
+    }
+
+    function populateImportedText(text, sourceUrl) {
+      const cleaned = text
+        .replace(/\r\n/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+
+      inputText.value = cleaned + "\n\n[Source: " + sourceUrl + "]";
+      currentLibraryIndex = null;
+      updateSaveProgressButton();
+
+      if (autoStartImport.checked) {
+        setTimeout(() => startReading(), 200);
+      }
+    }
+
+    async function extractTextFromPDFBuffer(arrayBuffer) {
+      try {
+        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+        const pdf = await loadingTask.promise;
+        let fullText = "";
+
+        for (let p = 1; p <= pdf.numPages; p++) {
+          const page = await pdf.getPage(p);
+          const content = await page.getTextContent();
+          const pageText = content.items.map(i => i.str).join(" ");
+          fullText += pageText + "\n\n";
+        }
+
+        return fullText;
+      } catch (err) {
+        console.error("PDF extraction error", err);
+        return "";
+      }
+    }
+
+    /* -------------------------
+       Auto‑Resume Draft
+       ------------------------- */
+
+    const LS_DRAFT_KEY = "rsvp_lastDraft";
+    const LS_DRAFT_POS_KEY = "rsvp_lastDraftPosition";
+    const LS_AUTO_RESUME_KEY = "rsvp_autoResumeDraftEnabled";
+
+    function saveLastDraft() {
+      try {
+        localStorage.setItem(LS_DRAFT_KEY, inputText.value || "");
+      } catch {}
+    }
+
+    function saveLastDraftPosition() {
+      try {
+        localStorage.setItem(LS_DRAFT_POS_KEY, String(index || 0));
+      } catch {}
+    }
+
+    function loadDraftOnStartup() {
+      try {
+        const enabled = localStorage.getItem(LS_AUTO_RESUME_KEY);
+        const autoResumeEnabled = enabled === null ? true : enabled === "true";
+        autoResumeDraft.checked = autoResumeEnabled;
+
+        if (!autoResumeEnabled) return;
+
+        const draft = localStorage.getItem(LS_DRAFT_KEY);
+        if (!draft) return;
+
+        inputText.value = draft;
+
+        const pos = parseInt(localStorage.getItem(LS_DRAFT_POS_KEY) || "0", 10);
+        if (!isNaN(pos) && pos > 0) {
+          index = pos;
+          setTimeout(() => startReading(), 200);
+        }
+      } catch {}
+    }
+
+    autoResumeDraft.addEventListener("change", () => {
+      try {
+        localStorage.setItem(LS_AUTO_RESUME_KEY, autoResumeDraft.checked ? "true" : "false");
+      } catch {}
+    });
+
+    inputText.addEventListener("input", saveLastDraft);
+    inputText.addEventListener("paste", () => setTimeout(saveLastDraft, 50));
+
+    /* -------------------------
+       Initialization
+       ------------------------- */
+    window.addEventListener("load", () => {
+      loadDraftOnStartup();
+      updateSaveProgressButton();
+    });
+
+    window.addEventListener("beforeunload", () => {
+      saveLastDraft();
+      saveLastDraftPosition();
+    });
+  </script>
+
+</body>
+</html>

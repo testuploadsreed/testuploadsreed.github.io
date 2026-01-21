@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>RSVP Reader with Library</title>
+  <title>RSVP Reader with Library + Line Numbers + iPad Fix</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     :root {
@@ -196,6 +196,7 @@
 
     .item-actions {
       display: flex;
+      flex-wrap: wrap;
       gap: 6px;
       margin-top: 4px;
     }
@@ -707,6 +708,13 @@
     const inputText = document.getElementById("inputText");
     const charCount = document.getElementById("charCount");
 
+    function isIpadSafari() {
+      return (
+        navigator.userAgent.includes("iPad") ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+      );
+    }
+
     function setSpeed(wpm) {
       rsvpSpeed = wpm;
       rsvpDelay = 60000 / wpm;
@@ -902,11 +910,16 @@
     }
 
     async function enterFullscreen() {
-      if (document.documentElement.requestFullscreen) {
-        try {
-          await document.documentElement.requestFullscreen();
-        } catch {}
+      if (isIpadSafari()) {
+        document.body.classList.add("fullscreen-mode");
+        cleanMode = true;
+        updateControlsVisibility();
+        ensureWordFits();
+        return;
       }
+      try {
+        await document.documentElement.requestFullscreen();
+      } catch {}
       document.body.classList.add("fullscreen-mode");
       cleanMode = true;
       updateControlsVisibility();
@@ -914,7 +927,7 @@
     }
 
     function exitFullscreen() {
-      if (document.fullscreenElement && document.exitFullscreen) {
+      if (!isIpadSafari() && document.fullscreenElement && document.exitFullscreen) {
         document.exitFullscreen();
       }
       document.body.classList.remove("fullscreen-mode");
@@ -1126,6 +1139,7 @@
     });
 
     document.addEventListener("fullscreenchange", () => {
+      if (isIpadSafari()) return;
       const fs = !!document.fullscreenElement;
       if (fs) {
         document.body.classList.add("fullscreen-mode");
@@ -1145,7 +1159,7 @@
     orpOffsetValue.textContent = orpOffsetControl.value;
 
     /* ============================================================
-       LIBRARY ENGINE
+       LIBRARY ENGINE + LINE NUMBERS
        ============================================================ */
 
     const LIB_KEY = "rsvp_library_v1";
@@ -1187,6 +1201,31 @@
       } catch {}
     }
 
+    function computeLineFromWordIndex(text, wordIndex) {
+      if (!text) return 0;
+      const words = text.split(/\s+/);
+      const targetWord = words[wordIndex] || "";
+      if (!targetWord) return 0;
+      const pos = text.indexOf(targetWord);
+      if (pos === -1) return 0;
+      const lines = text.split(/\r?\n/);
+      let charCount = 0;
+      for (let i = 0; i < lines.length; i++) {
+        charCount += lines[i].length + 1;
+        if (charCount > pos) return i;
+      }
+      return lines.length - 1;
+    }
+
+    function computeWordIndexFromLine(text, lineNumber) {
+      if (!text) return 0;
+      const lines = text.split(/\r?\n/);
+      const safeLine = Math.max(0, Math.min(lineNumber, lines.length - 1));
+      const before = lines.slice(0, safeLine).join(" ");
+      if (!before.trim()) return 0;
+      return before.trim().split(/\s+/).length;
+    }
+
     function autoAddCurrentText() {
       const text = inputText.value.trim();
       if (!text) return null;
@@ -1204,6 +1243,7 @@
         updated: Date.now(),
         progress: {
           index: 0,
+          line: 0,
           mode: rsvpMode,
           speed: rsvpSpeed,
           timestamp: Date.now()
@@ -1233,13 +1273,14 @@
         const idx = item.progress?.index || 0;
         const pct =
           totalWords > 0 ? Math.min(100, Math.floor((idx / totalWords) * 100)) : 0;
+        const line = item.progress?.line ?? 0;
         const card = document.createElement("div");
         card.className = "item-card";
         card.dataset.id = item.id;
         card.innerHTML = `
           <div class="item-title-row">
             <div class="item-title" title="${item.title}">${item.title}</div>
-            <div class="item-meta">${pct}%</div>
+            <div class="item-meta">${pct}% · line ${line + 1}</div>
           </div>
           <div class="item-progress-bar">
             <div class="item-progress-fill" style="width:${pct}%"></div>
@@ -1247,6 +1288,7 @@
           <div class="item-actions">
             <button class="btn btn-primary btn-continue">Continue</button>
             <button class="btn btn-ghost btn-restart">Start over</button>
+            <button class="btn btn-ghost btn-jump">Jump to line</button>
             <button class="btn btn-ghost btn-rename">Rename</button>
             <button class="btn btn-danger btn-delete">Delete</button>
           </div>
@@ -1267,6 +1309,17 @@
         };
         card.querySelector(".btn-restart").onclick = () => {
           openItem(id, false);
+        };
+        card.querySelector(".btn-jump").onclick = () => {
+          const lineStr = prompt(
+            "Enter line number to jump to (1-based):",
+            (item.progress?.line ?? 0) + 1
+          );
+          if (!lineStr) return;
+          const lineNum = parseInt(lineStr, 10);
+          if (isNaN(lineNum) || lineNum < 1) return;
+          const index = computeWordIndexFromLine(item.content, lineNum - 1);
+          forceStartReading(index, true);
         };
         card.querySelector(".btn-rename").onclick = () => {
           const name = prompt("Rename item:", item.title || "Untitled");
@@ -1351,6 +1404,7 @@
       item.progress.index = index;
       item.progress.mode = mode;
       item.progress.speed = speed;
+      item.progress.line = computeLineFromWordIndex(item.content, index);
       item.progress.timestamp = Date.now();
       item.updated = Date.now();
       saveLibrary();

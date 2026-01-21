@@ -491,11 +491,14 @@
 
     body.fullscreen-mode {
       background: #000000 !important;
+      height: 100dvh !important;
+      overflow: hidden !important;
     }
 
     body.fullscreen-mode .app-shell {
       padding: 0;
       max-width: 100%;
+      height: 100dvh;
     }
 
     body.fullscreen-mode .sidebar,
@@ -510,6 +513,7 @@
 
     body.fullscreen-mode .main {
       padding: 0;
+      height: 100dvh;
     }
 
     body.fullscreen-mode .reader-panel {
@@ -517,6 +521,7 @@
       border: none;
       box-shadow: none;
       background: #000000;
+      height: 100dvh !important;
     }
 
     body.fullscreen-mode .reader-inner {
@@ -1153,6 +1158,18 @@
     });
 
     window.addEventListener("resize", ensureWordFits);
+
+    if (isIpadSafari()) {
+      document.body.addEventListener(
+        "touchmove",
+        (e) => {
+          if (document.body.classList.contains("fullscreen-mode")) {
+            e.preventDefault();
+          }
+        },
+        { passive: false }
+      );
+    }
 
     setSpeed(400);
     fontValue.textContent = fontControl.value;

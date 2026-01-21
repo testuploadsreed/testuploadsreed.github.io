@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta charset="UTF-8" />
   <title>RSVP Reader — True Fullscreen + Library + Lines</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <style>
     :root {
       --bg: #0f172a;
@@ -56,8 +57,6 @@
       padding: 16px;
       gap: 16px;
     }
-
-    /* Sidebar */
 
     .sidebar {
       width: 320px;
@@ -179,8 +178,6 @@
       padding: 4px 8px;
     }
 
-    /* Buttons */
-
     .btn {
       border-radius: 999px;
       border: 1px solid rgba(148,163,184,0.35);
@@ -213,8 +210,6 @@
     .btn:active {
       transform: translateY(1px);
     }
-
-    /* Main */
 
     .main {
       flex: 1;
@@ -425,7 +420,7 @@
     }
 
     .fullscreen-speed {
-      width: 220px;
+      width: 260px;
       display: none;
       align-items: center;
       gap: 6px;
@@ -439,7 +434,7 @@
     }
 
     .fullscreen-speed input[type="range"] {
-      width: 160px;
+      width: 180px;
     }
 
     .indicator {
@@ -487,9 +482,10 @@
     }
   </style>
 </head>
+
 <body>
   <div class="app-shell">
-    <!-- Sidebar / Library -->
+
     <aside class="sidebar">
       <div class="sidebar-header">
         <div>
@@ -519,7 +515,6 @@
       <div class="library-list" id="libraryList"></div>
     </aside>
 
-    <!-- Main -->
     <main class="main">
       <div class="top-bar">
         <div class="top-left">
@@ -539,17 +534,20 @@
           <span id="speedValue">400</span>
           <span>WPM</span>
         </div>
+
         <div class="control-group">
           <label>Font</label>
           <input type="range" id="fontControl" min="32" max="80" step="2" value="64" />
           <span id="fontValue">64</span>
           <span>px</span>
         </div>
+
         <div class="control-group">
           <label>ORP</label>
           <input type="range" id="orpOffsetControl" min="0" max="4" step="1" value="2" />
           <span id="orpOffsetValue">2</span>
         </div>
+
         <div class="control-group">
           <label>Mode</label>
           <div class="pill-row" id="modePills">
@@ -562,14 +560,15 @@
       </div>
 
       <div class="panel">
-        <!-- Editor -->
         <section class="editor-panel" id="editorPanel">
           <div style="flex:1;display:flex;flex-direction:column;">
             <div class="editor-header">
               <span>Source text</span>
               <span id="charCount">0 characters</span>
             </div>
+
             <textarea id="inputText" placeholder="Paste or type your text here..."></textarea>
+
             <div class="editor-footer">
               <span>Every saved text is added to the library with progress tracking.</span>
               <div style="display:flex;gap:6px;">
@@ -579,7 +578,6 @@
           </div>
         </section>
 
-        <!-- Reader -->
         <section class="reader-panel" id="readerPanel">
           <div class="reader-inner">
             <div class="orp-word" id="orpWord"></div>
@@ -593,6 +591,13 @@
               <button class="btn" id="resumeBtn" style="display:none;">Resume</button>
               <button class="btn" id="stopBtn">Stop</button>
               <button class="btn" id="skipBtn">+50 ⏩</button>
+              <button class="btn" id="exitFsBtn">Exit Fullscreen</button>
+            </div>
+
+            <div class="fullscreen-speed" id="fullscreenSpeed">
+              <span>Speed</span>
+              <input type="range" id="speedControlFs" min="150" max="1200" step="50" value="400" />
+              <span id="speedValueFs">400</span>
             </div>
           </div>
 
@@ -603,10 +608,6 @@
   </div>
 
   <script>
-    /* ============================================================
-       RSVP ENGINE
-       ============================================================ */
-
     let rsvpWords = [];
     let rsvpChunks = [];
     let rsvpIndex = 0;
@@ -636,8 +637,13 @@
     const stopBtn = document.getElementById("stopBtn");
     const rewindBtn = document.getElementById("rewindBtn");
     const skipBtn = document.getElementById("skipBtn");
+    const exitFsBtn = document.getElementById("exitFsBtn");
 
     const fullscreenControls = document.getElementById("fullscreenControls");
+    const fullscreenSpeed = document.getElementById("fullscreenSpeed");
+    const speedControlFs = document.getElementById("speedControlFs");
+    const speedValueFs = document.getElementById("speedValueFs");
+
     const speedControl = document.getElementById("speedControl");
     const speedValue = document.getElementById("speedValue");
     const fontControl = document.getElementById("fontControl");
@@ -654,9 +660,12 @@
       rsvpDelay = 60000 / wpm;
       speedValue.textContent = wpm;
       speedControl.value = wpm;
+      speedValueFs.textContent = wpm;
+      speedControlFs.value = wpm;
     }
 
     speedControl.addEventListener("input", () => setSpeed(+speedControl.value));
+    speedControlFs.addEventListener("input", () => setSpeed(+speedControlFs.value));
 
     fontControl.addEventListener("input", () => {
       const size = +fontControl.value;
@@ -802,12 +811,28 @@
       const container = readerPanel;
       const wordEl = orpWord;
       if (!container || !wordEl) return;
-      const baseSize = +fontControl.value || 64;
-      let size = baseSize;
+
+      const maxWidth = container.clientWidth * 0.92;
+      const maxHeight = container.clientHeight * 0.35;
+
+      let targetSize = +fontControl.value;
+      let size = targetSize;
       wordEl.style.fontSize = size + "px";
-      if (wordEl.scrollWidth <= container.clientWidth * 0.95) return;
-      while (wordEl.scrollWidth > container.clientWidth * 0.95 && size > 20) {
+
+      while (
+        (wordEl.scrollWidth > maxWidth || wordEl.scrollHeight > maxHeight) &&
+        size > 20
+      ) {
         size -= 2;
+        wordEl.style.fontSize = size + "px";
+      }
+
+      while (
+        wordEl.scrollWidth < maxWidth * 0.75 &&
+        wordEl.scrollHeight < maxHeight * 0.75 &&
+        size < targetSize
+      ) {
+        size += 2;
         wordEl.style.fontSize = size + "px";
       }
     }
@@ -839,8 +864,6 @@
         indicator.classList.remove("visible");
       }, 800);
     }
-
-    /* TRUE FULLSCREEN ON READER PANEL */
 
     function enterFullscreenReal() {
       const el = readerPanel;
@@ -874,15 +897,22 @@
       const inFs = document.body.classList.contains("fullscreen-mode");
       if (!inFs) {
         fullscreenControls.classList.remove("visible");
+        fullscreenSpeed.classList.remove("visible");
         readerSub.style.display = "block";
         return;
       }
       if (cleanMode) {
         fullscreenControls.classList.remove("visible");
+        fullscreenSpeed.classList.remove("visible");
         readerSub.style.display = "none";
       } else {
         fullscreenControls.classList.add("visible");
         readerSub.style.display = "block";
+        if (rsvpPaused) {
+          fullscreenSpeed.classList.add("visible");
+        } else {
+          fullscreenSpeed.classList.remove("visible");
+        }
       }
     }
 
@@ -915,7 +945,6 @@
 
     function startReading() {
       currentLibraryItemId = autoAddCurrentText();
-      // Auto fullscreen on start (your choice B)
       forceStartReading(0, true);
     }
 
@@ -951,6 +980,9 @@
     function pauseReading() {
       if (!rsvpRunning || rsvpPaused) return;
       rsvpPaused = true;
+
+      cleanMode = false;
+
       pauseBtn.style.display = "none";
       resumeBtn.style.display = "inline-flex";
       showIndicator("Paused");
@@ -1005,7 +1037,9 @@
     rewindBtn.addEventListener("click", rewind);
     skipBtn.addEventListener("click", skip);
 
-    /* Swipe-left / swipe-right to toggle controls */
+    exitFsBtn.addEventListener("click", () => {
+      exitFullscreenReal();
+    });
 
     let touchStartX = null;
 
@@ -1037,6 +1071,13 @@
 
     document.addEventListener("fullscreenchange", () => {
       const fs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+
+      if (!fs) {
+        if (rsvpRunning && !rsvpPaused) {
+          pauseReading();
+        }
+      }
+
       if (fs) {
         document.body.classList.add("fullscreen-mode");
         cleanMode = true;
@@ -1044,6 +1085,7 @@
         document.body.classList.remove("fullscreen-mode");
         cleanMode = true;
       }
+
       updateControlsVisibility();
       ensureWordFits();
     });
@@ -1053,10 +1095,6 @@
     setSpeed(400);
     fontValue.textContent = fontControl.value;
     orpOffsetValue.textContent = orpOffsetControl.value;
-
-    /* ============================================================
-       LIBRARY ENGINE + LINE NUMBERS
-       ============================================================ */
 
     const LIB_KEY = "rsvp_library_v1";
 
@@ -1102,8 +1140,10 @@
       const words = text.split(/\s+/);
       const targetWord = words[wordIndex] || "";
       if (!targetWord) return 0;
+
       const pos = text.indexOf(targetWord);
       if (pos === -1) return 0;
+
       const lines = text.split(/\r?\n/);
       let charCount = 0;
       for (let i = 0; i < lines.length; i++) {
@@ -1125,11 +1165,13 @@
     function autoAddCurrentText() {
       const text = inputText.value.trim();
       if (!text) return null;
+
       for (const id in library.items) {
         if (library.items[id].content === text) {
           return id;
         }
       }
+
       const id = uid();
       library.items[id] = {
         id,
@@ -1157,19 +1199,21 @@
         (a, b) => b.updated - a.updated
       );
       let count = 0;
+
       for (const item of items) {
         const haystack =
           (item.title || "").toLowerCase() +
           " " +
           (item.content || "").toLowerCase();
         if (query && !haystack.includes(query)) continue;
+
         count++;
-        const totalWords = (item.content || "").split(/\s+/).filter(Boolean)
-          .length;
+        const totalWords = (item.content || "").split(/\s+/).filter(Boolean).length;
         const idx = item.progress?.index || 0;
         const pct =
           totalWords > 0 ? Math.min(100, Math.floor((idx / totalWords) * 100)) : 0;
         const line = item.progress?.line ?? 0;
+
         const card = document.createElement("div");
         card.className = "item-card";
         card.dataset.id = item.id;
@@ -1191,6 +1235,7 @@
         `;
         libraryList.appendChild(card);
       }
+
       librarySummary.textContent = count + " item" + (count === 1 ? "" : "s");
       attachItemEvents();
     }
@@ -1200,12 +1245,15 @@
         const id = card.dataset.id;
         const item = library.items[id];
         if (!item) return;
+
         card.querySelector(".btn-continue").onclick = () => {
           openItem(id, true);
         };
+
         card.querySelector(".btn-restart").onclick = () => {
           openItem(id, false);
         };
+
         card.querySelector(".btn-jump").onclick = () => {
           const lineStr = prompt(
             "Enter line number to jump to (1-based):",
@@ -1217,6 +1265,7 @@
           const index = computeWordIndexFromLine(item.content, lineNum - 1);
           forceStartReading(index, true);
         };
+
         card.querySelector(".btn-rename").onclick = () => {
           const name = prompt("Rename item:", item.title || "Untitled");
           if (!name) return;
@@ -1225,6 +1274,7 @@
           saveLibrary();
           renderLibrary();
         };
+
         card.querySelector(".btn-delete").onclick = () => {
           if (!confirm("Delete this item?")) return;
           delete library.items[id];
@@ -1250,6 +1300,13 @@
     });
 
     newItemBtn.addEventListener("click", () => {
+      if (rsvpRunning || rsvpPaused) {
+        stopReading();
+      }
+
+      editorPanel.style.display = "flex";
+      readerPanel.classList.remove("active");
+
       inputText.value = "";
       charCount.textContent = "0 characters";
       inputText.focus();
